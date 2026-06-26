@@ -1,0 +1,20 @@
+{
+  "app_name": {
+    "message": "TheBoringEnglish"
+  },
+  "app_description": {
+    "message": "YouTube バイリンガル字幕と語学学習アシスタント。二言語字幕、ホバー翻訳、スマート再生同期に対応。"
+  },
+  "toggle_translate": {
+    "message": "翻訳の切り替え"
+  },
+  "toggle_style": {
+    "message": "スタイル切り替え"
+  },
+  "open_options": {
+    "message": "設定を開く"
+  },
+  "open_tranbox": {
+    "message": "ポップアップを開く"
+  }
+}

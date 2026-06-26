@@ -1,0 +1,20 @@
+{
+  "app_name": {
+    "message": "TheBoringEnglish"
+  },
+  "app_description": {
+    "message": "Subtítulos bilingües de YouTube y asistente de aprendizaje de idiomas. Compatible con subtítulos bilingües, traducción al pasar el cursor y sincronización inteligente de reproducción."
+  },
+  "toggle_translate": {
+    "message": "Alternar traducción"
+  },
+  "toggle_style": {
+    "message": "Cambiar estilo"
+  },
+  "open_options": {
+    "message": "Abrir configuración"
+  },
+  "open_tranbox": {
+    "message": "Abrir ventana emergente"
+  }
+}

@@ -1,0 +1,6 @@
+
+> lingoflow@2.0.12 build
+> vite build
+
+[36mvite v8.0.2 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 1187 modules transformed.

@@ -1,0 +1,20 @@
+{
+  "app_name": {
+    "message": "TheBoringEnglish"
+  },
+  "app_description": {
+    "message": "YouTube 双语字幕与语言学习助手。支持双语字幕、悬停翻译生词和智能播放同步。"
+  },
+  "toggle_translate": {
+    "message": "开启翻译"
+  },
+  "toggle_style": {
+    "message": "切换样式"
+  },
+  "open_options": {
+    "message": "打开设置"
+  },
+  "open_tranbox": {
+    "message": "打开弹窗"
+  }
+}
