@@ -1,0 +1,57 @@
+{
+  "name": "lingoflow",
+  "version": "1.0.0",
+  "description": "LingoFlow - YouTube Dual Subtitles Pro",
+  "main": "src/subtitle/YouTubeCaptionProvider.js",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "test": "vitest",
+    "preview": "vite preview",
+    "zip": "npm run build && node zip.js"
+  },
+  "author": "Norman",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TheBoringEnglish/TBE-YouTube.git"
+  },
+  "homepage": "https://github.com/TheBoringEnglish/TBE-YouTube",
+  "dependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/css": "^11.13.5",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.9",
+    "@mui/lab": "^7.0.1-beta.23",
+    "@mui/material": "^7.3.9",
+    "query-string": "^7.1.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.13.2",
+    "react-scripts": "5.0.1",
+    "sval": "^0.6.9",
+    "webdav": "^5.9.0",
+    "webextension-polyfill": "^0.12.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.4.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "archiver": "^7.0.1",
+    "vite": "^8.0.2",
+    "vitest": "^4.1.1"
+  }
+}

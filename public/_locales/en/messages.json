@@ -1,0 +1,20 @@
+{
+  "app_name": {
+    "message": "TheBoringEnglish"
+  },
+  "app_description": {
+    "message": "YouTube bilingual subtitles & language learning. Watch with bilingual captions, hover-dictionary, and smart playback sync."
+  },
+  "toggle_translate": {
+    "message": "Toggle Translation"
+  },
+  "toggle_style": {
+    "message": "Toggle Styles"
+  },
+  "open_options": {
+    "message": "Open Setting"
+  },
+  "open_tranbox": {
+    "message": "Open Popup Box"
+  }
+}
