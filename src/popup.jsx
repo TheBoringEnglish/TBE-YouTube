@@ -317,18 +317,7 @@ function App() {
         <section className="config-card animate">
           <div className="section-title">{i18n("translate_service")}</div>
           
-          <div className="form-group" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "12px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "15px" }}>
-            <label className="form-label" style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>启用双语字幕</label>
-            <input 
-              type="checkbox" 
-              checked={subEnabled} 
-              onChange={(e) => setSubEnabled(e.target.checked)}
-              style={{ width: "16px", height: "16px", cursor: "pointer" }}
-            />
-          </div>
-          
           <div className="form-group">
-            <label className="form-label">{i18n("translate_service")}</label>
             <select 
               className="input-field" 
               value={selectedSlug} 
@@ -409,7 +398,6 @@ function App() {
 
           <div className="section-title">{i18n("target_lang")}</div>
           <div className="form-group">
-            <label className="form-label">{i18n("sub_translate_to")}</label>
             <select 
               className="input-field" 
               value={targetLang} 
@@ -420,52 +408,6 @@ function App() {
               ))}
             </select>
           </div>
-
-          <button 
-            className="advanced-toggle"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-          >
-            {showAdvanced ? "▼" : "▶"} {i18n("advanced_options")}
-          </button>
-
-          {showAdvanced && selectedApi && (
-            <div className="advanced-section animate-in">
-              {/* 非 AI 引擎时显示 AI 分段开关（因为 AI 引擎强制开启了） */}
-              
-              {API_SPE_TYPES.ai.has(selectedSlug) && (
-                <>
-                  <div className="form-group">
-                    <label className="form-label">Temperature</label>
-                    <input 
-                      type="number" 
-                      className="input-field small" 
-                      min="0" max="2" step="0.1"
-                      value={selectedApi.temperature ?? 0}
-                      onChange={(e) => updateApiField(selectedSlug, "temperature", parseFloat(e.target.value))}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Max Tokens</label>
-                    <input 
-                      type="number" 
-                      className="input-field small" 
-                      value={selectedApi.maxTokens ?? 20480}
-                      onChange={(e) => updateApiField(selectedSlug, "maxTokens", parseInt(e.target.value))}
-                    />
-                  </div>
-                </>
-              )}
-              <div className="form-group">
-                <label className="form-label">{i18n("request_timeout")} (ms)</label>
-                <input 
-                  type="number" 
-                  className="input-field small" 
-                  value={selectedApi.httpTimeout ?? 30000}
-                  onChange={(e) => updateApiField(selectedSlug, "httpTimeout", parseInt(e.target.value))}
-                />
-              </div>
-            </div>
-          )}
 
           <button 
             className={`save-btn ${isSaved ? "success" : ""}`} 

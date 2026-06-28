@@ -794,7 +794,7 @@ export class YouTubeSubtitleList {
 
     // TheBoringEnglish 官方链接
     const brandLink = document.createElement("a");
-    brandLink.href = "https://github.com/getlingoflow/lingoflow-youtube";
+    brandLink.href = "https://github.com/TheBoringEnglish/TBE-YouTube";
     brandLink.target = "_blank";
     brandLink.textContent = "TheBoringEnglish";
     Object.assign(brandLink.style, {
