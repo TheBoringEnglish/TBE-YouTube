@@ -28,6 +28,12 @@
 
 ### 🌐 多种翻译引擎
 支持 Microsoft Translate、Google Translate、DeepL 等多种引擎。根据您的语言对选择最适合的翻译引擎。
+
+### 🔄 TheBoringEnglish 主站数据联动
+支持将浏览器插件与您的 **TheBoringEnglish** Web 主站账号进行绑定联动：
+- **生词同步**：在 YouTube 上查词的记录会自动实时同步到主站的个人生词本。
+- **一键导出**：支持一键将当前 YouTube 视频字幕及语境信息直接导出到主站生成精读文章，以便进行深度阅读与听力训练。
+
 ### 🔒 安全绕过 CSP 限制
 基于 Manifest V3 标准，利用浏览器原生的主页面世界（`world: "MAIN"`）内容脚本注入技术，在最早时机挂载字幕网络请求与 Shadow DOM 拦截器。这能彻底且 100% 安全地绕过 YouTube 页面严格的 CSP（Content Security Policy）拦截，确保本地和线上环境均能稳定解析到双语字幕。
 
@@ -78,6 +84,20 @@
    npm run build
    ```
 5. 打开 Chrome 扩展程序页面（`chrome://extensions/`），开启右上角**“开发者模式”**，点击左上角**“加载已解压的扩展程序”**，选择项目根目录中生成的 `dist/` 文件夹。
+
+---
+
+## 🔄 配置主站联动 (关联码绑定)
+
+为了将 LingoFlow 插件与您的 **TheBoringEnglish** 主站账号进行关联，请按以下步骤操作：
+
+1. **获取 API Token**：登录您的 TheBoringEnglish 主站系统，点击进入 **“个人设置”** -> **“常规”**，在页面最下方的 **“API Token (绑定密钥)”** 一栏，点击复制您的专属 Token。
+2. **在插件中绑定**：
+   - 在浏览器中点击 LingoFlow 插件图标打开设置面板。
+   - 切换到 **“联动”** 标签页。
+   - 输入您的 **TheBoringEnglish 服务器地址**（如：`http://localhost:6400` 或您的公网部署地址）。
+   - 在 **“API Token (绑定密钥)”** 输入框中，粘贴刚才复制的 Token 密钥。
+   - 点击 **“连接并保存”**。连接成功后，状态将显示为已成功登录，之后在 YouTube 的所有查词和精读导出都将自动同步。
 
 
 ## 📜 开源协议与致谢
