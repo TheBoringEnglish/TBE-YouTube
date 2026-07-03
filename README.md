@@ -28,6 +28,12 @@ Export your word book in **JSON**, **CSV**, **TXT**, or **Markdown** — ready f
 
 ### 🌐 Multiple Translation Engines
 Supports Microsoft Translate, Google Translate, DeepL, and more. Choose the engine that works best for your language pair.
+
+### 🔄 TheBoringEnglish Integration
+Supports linking the browser extension with your **TheBoringEnglish** Web platform account:
+- **Vocabulary Sync**: Words you look up on YouTube are automatically synchronized to your personal word book on the Web platform in real time.
+- **One-Click Export**: Easily export current video subtitles and contexts directly to the Web platform to generate intensive reading articles for deep learning.
+
 ### 🔒 Secure CSP Bypass
 Based on the Manifest V3 standard, the extension utilizes native Main World content script injection (`world: "MAIN"`) to load the subtitle request interceptors at the earliest possible stage (`document_start`). This securely and 100% bypasses YouTube's strict CSP (Content Security Policy) restrictions, ensuring stable dual subtitle rendering in both local and production environments.
 
@@ -78,6 +84,20 @@ Based on the Manifest V3 standard, the extension utilizes native Main World cont
    npm run build
    ```
 5. Open the Chrome Extensions page (`chrome://extensions/`), enable **"Developer mode"**, click **"Load unpacked"**, and select the `dist/` directory generated in the root of the project.
+
+---
+
+## 🔄 Setting Up Web Platform Integration (Token Binding)
+
+To link the LingoFlow extension with your **TheBoringEnglish** Web platform account:
+
+1. **Get your API Token**: Log in to your TheBoringEnglish platform, go to **"Settings"** -> **"General"**, and copy the API Token from the bottom of the page (**“API Token (绑定密钥)”**).
+2. **Bind in the Extension**:
+   - Click the LingoFlow extension icon in your browser to open the popup settings panel.
+   - Switch to the **"Sync"** (or **"联动"**) tab.
+   - Enter your **TheBoringEnglish Server URL** (e.g., `http://localhost:6400` or your deployed public domain).
+   - Paste the copied token into the **"API Token (绑定密钥)"** input field.
+   - Click **"Connect & Save"**. Once verified, the connection status will show as successful, and your vocabulary sync and article exports will be automated.
 
 
 ## 📜 License & Credits
