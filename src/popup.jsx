@@ -114,7 +114,7 @@ function App() {
 
   // 主站联动配置
   const [syncConfig, setSyncConfig] = useState({
-    serverUrl: "http://localhost:6400",
+    serverUrl: "https://www.theboringenglish.com",
     username: "",
     password: "",
     token: "",
@@ -454,7 +454,7 @@ function App() {
                 <input 
                   type="text" 
                   className="input-field" 
-                  placeholder="例如: http://localhost:6400"
+                  placeholder="例如: https://www.theboringenglish.com"
                   value={syncConfig.serverUrl}
                   onChange={(e) => setSyncConfig(prev => ({ ...prev, serverUrl: e.target.value }))}
                 />
