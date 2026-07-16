@@ -3,7 +3,7 @@ const shadowRootInjector = () => {
     const orig = Element.prototype.attachShadow;
     Element.prototype.attachShadow = function (...args) {
       const root = orig.apply(this, args);
-      window.postMessage({ type: "LINGOFLOW_SHADOW_ROOT_CREATED" }, "*");
+      window.postMessage({ type: "THEBORINGENGLISH_SHADOW_ROOT_CREATED" }, "*");
       return root;
     };
   } catch (err) {
@@ -12,4 +12,4 @@ const shadowRootInjector = () => {
 };
 
 shadowRootInjector();
-console.log("LingoFlow: ShadowRoot interceptor injected.");
+console.log("TheBoringEnglish: ShadowRoot interceptor injected.");

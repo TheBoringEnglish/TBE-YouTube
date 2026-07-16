@@ -1,6 +1,6 @@
 @echo off
 echo ==========================================
-echo [LingoFlow] Starting Extension Build ^& Zip
+echo [TheBoringEnglish] Starting Extension Build ^& Zip
 echo ==========================================
 
 REM Check if node_modules exists
@@ -28,6 +28,6 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo ==========================================
-echo [LingoFlow] All tasks completed successfully!
+echo [TheBoringEnglish] All tasks completed successfully!
 echo ==========================================
 pause

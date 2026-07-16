@@ -1,4 +1,4 @@
-import { lingoflowLog, logger } from "./log";
+import { theboringenglishLog, logger } from "./log";
 
 /**
  * Chrome 浏览器内置翻译
@@ -12,7 +12,7 @@ class ChromeTranslator {
   }
 
   #defaultProgressHandler(type, progress) {
-    lingoflowLog(`Downloading ${type} model: ${progress}%`);
+    theboringenglishLog(`Downloading ${type} model: ${progress}%`);
   }
 
   #getDetectorPromise() {
@@ -105,7 +105,7 @@ class ChromeTranslator {
 
       return [detectedLanguage, ""];
     } catch (error) {
-      lingoflowLog("detectLanguage", error, `(${text})`);
+      theboringenglishLog("detectLanguage", error, `(${text})`);
       return ["", error.message];
     }
   }
@@ -144,7 +144,7 @@ class ChromeTranslator {
 
       return [translatedText, finalSourceLanguage, ""];
     } catch (error) {
-      lingoflowLog("translateText", error, `(${text})`);
+      theboringenglishLog("translateText", error, `(${text})`);
 
       if (
         error &&

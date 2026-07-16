@@ -166,6 +166,16 @@ export const BUILTIN_PLACETAGS = ["i", "a", "b", "x"];
 export const OPT_LANGS_TO = [
   ["zh-CN", "Simplified Chinese - 简体中文"],
   ["zh-TW", "Traditional Chinese - 繁體中文"],
+  ["en", "English - 英文"],
+  ["ja", "Japanese - 日本語"],
+  ["ko", "Korean - 한국어"],
+  ["fr", "French - Français"],
+  ["de", "German - Deutsch"],
+  ["es", "Spanish - Español"],
+  ["pt", "Portuguese - Português"],
+  ["it", "Italian - Italiano"],
+  ["ru", "Russian - Русский"],
+  ["vi", "Vietnamese - Tiếng Việt"],
 ];
 export const OPT_LANGS_LIST = OPT_LANGS_TO.map(([lang]) => lang);
 export const OPT_LANGS_FROM = [["auto", "Auto-detect"], ...OPT_LANGS_TO];
@@ -489,7 +499,7 @@ const defaultApiOpts = {
   [OPT_TRANS_GEMINI]: {
     ...defaultApi,
     url: `https://generativelanguage.googleapis.com/v1/models/${INPUT_PLACE_MODEL}:generateContent?key=${INPUT_PLACE_KEY}`,
-    model: "gemini-2.5-flash",
+    model: "gemini-3.1-flash-lite",
     useBatchFetch: true,
   },
   [OPT_TRANS_GEMINI_2]: {

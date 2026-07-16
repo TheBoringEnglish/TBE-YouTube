@@ -1,4 +1,4 @@
-export const APP_NAME = (process.env.REACT_APP_NAME || "LingoFlow").trim()
+export const APP_NAME = (process.env.REACT_APP_NAME || "TheBoringEnglish").trim()
   .split(/\s+/)
   .join("-");
 export const APP_LCNAME = APP_NAME.toLowerCase();

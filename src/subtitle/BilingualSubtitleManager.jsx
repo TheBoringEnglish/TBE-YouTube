@@ -6,19 +6,19 @@ import { newI18n } from "../config/i18n";
 
 // 添加CSS样式用于高亮显示悬停的单词
 const addWordHoverStyles = () => {
-  if (document.getElementById("lingoflow-word-hover-styles")) return;
+  if (document.getElementById("theboringenglish-word-hover-styles")) return;
 
   const style = document.createElement("style");
-  style.id = "lingoflow-word-hover-styles";
+  style.id = "theboringenglish-word-hover-styles";
   style.textContent = `
-    .lingoflow-word-hover {
+    .theboringenglish-word-hover {
       cursor: pointer;
       text-decoration: underline;
       text-decoration-color: #4fc3f7;
       text-decoration-thickness: 2px;
     }
     
-    .lingoflow-word-tooltip {
+    .theboringenglish-word-tooltip {
       position: fixed;
       background: rgba(0, 0, 0, 0.95);
       color: white;
@@ -34,7 +34,7 @@ const addWordHoverStyles = () => {
       font-family: Arial, sans-serif;
     }
     
-    .lingoflow-word-tooltip-header {
+    .theboringenglish-word-tooltip-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -44,7 +44,7 @@ const addWordHoverStyles = () => {
       color: #4fc3f7;
     }
     
-    .lingoflow-word-tooltip-close {
+    .theboringenglish-word-tooltip-close {
       background: none;
       border: none;
       color: #aaa;
@@ -59,48 +59,48 @@ const addWordHoverStyles = () => {
       justify-content: center;
     }
     
-    .lingoflow-word-tooltip-close:hover {
+    .theboringenglish-word-tooltip-close:hover {
       color: white;
       background: rgba(255, 255, 255, 0.1);
       border-radius: 50%;
     }
     
-    .lingoflow-word-loading {
+    .theboringenglish-word-loading {
       color: #bbb;
       font-style: italic;
     }
     
-    .lingoflow-word-definition {
+    .theboringenglish-word-definition {
       margin: 4px 0;
     }
     
-    .lingoflow-word-pos {
+    .theboringenglish-word-pos {
       color: #4fc3f7;
       font-weight: bold;
     }
     
-    .lingoflow-word-phonetic {
+    .theboringenglish-word-phonetic {
       color: #bbb;
       font-style: italic;
       margin-right: 10px;
     }
     
-    .lingoflow-word-example {
+    .theboringenglish-word-example {
       margin-top: 10px;
       padding-top: 8px;
       border-top: 1px solid #444;
     }
     
-    .lingoflow-word-example-title {
+    .theboringenglish-word-example-title {
       font-weight: bold;
       margin-bottom: 5px;
     }
     
-    .lingoflow-word-example-sentence {
+    .theboringenglish-word-example-sentence {
       margin-bottom: 3px;
     }
     
-    .lingoflow-word-example-translation {
+    .theboringenglish-word-example-translation {
       color: #bbb;
       font-style: italic;
     }
@@ -137,7 +137,11 @@ export class BilingualSubtitleManager {
   constructor({ videoEl, formattedSubtitles, setting }) {
     this.#setting = setting;
     this.#videoEl = videoEl;
-    this.#formattedSubtitles = formattedSubtitles;
+    this.#formattedSubtitles = (formattedSubtitles || []).filter((sub, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr[idx - 1];
+      return !(sub.start === prev.start && sub.text === prev.text);
+    });
 
     this.onTimeUpdate = this.onTimeUpdate.bind(this);
     this.onSeek = this.onSeek.bind(this);
@@ -200,7 +204,7 @@ export class BilingualSubtitleManager {
    */
   #createCaptionWindow() {
     const container = document.createElement("div");
-    container.className = `lingoflow-caption-container notranslate`;
+    container.className = `theboringenglish-caption-container notranslate`;
     Object.assign(container.style, {
       position: "absolute",
       width: "100%",
@@ -211,7 +215,7 @@ export class BilingualSubtitleManager {
     });
 
     const paper = document.createElement("div");
-    paper.className = `lingoflow-caption-paper`;
+    paper.className = `theboringenglish-caption-paper`;
     Object.assign(paper.style, {
       position: "absolute",
       width: "80%",
@@ -227,7 +231,7 @@ export class BilingualSubtitleManager {
     this.#paperEl = paper;
 
     this.#captionWindowEl = document.createElement("div");
-    this.#captionWindowEl.className = `lingoflow-caption-window`;
+    this.#captionWindowEl.className = `theboringenglish-caption-window`;
     this.#captionWindowEl.style.cssText = this.#setting.windowStyle;
     this.#captionWindowEl.style.pointerEvents = "auto";
     this.#captionWindowEl.style.cursor = "grab";
@@ -267,10 +271,10 @@ export class BilingualSubtitleManager {
   // 处理单词悬停事件
   #handleWordHover(event) {
     const target = event.target;
-    if (target.classList.contains("lingoflow-subtitle-word")) {
+    if (target.classList.contains("theboringenglish-subtitle-word")) {
       // 如果鼠标从一个单词移到另一个单词，处理之前的单词
       if (this.#activeWordEl && this.#activeWordEl !== target) {
-        this.#activeWordEl.classList.remove("lingoflow-word-hover");
+        this.#activeWordEl.classList.remove("theboringenglish-word-hover");
       }
       this.#activeWordEl = target;
 
@@ -279,7 +283,7 @@ export class BilingualSubtitleManager {
         this.#hoverTimeout = null;
       }
 
-      target.classList.add("lingoflow-word-hover");
+      target.classList.add("theboringenglish-word-hover");
 
       if (this.#videoEl && !this.#videoEl.paused) {
         this.#videoEl.pause();
@@ -298,7 +302,7 @@ export class BilingualSubtitleManager {
   // 处理鼠标移出事件
   #handleWordHoverOut(event) {
     const target = event.target;
-    if (target.classList.contains("lingoflow-subtitle-word")) {
+    if (target.classList.contains("theboringenglish-subtitle-word")) {
       if (this.#hoverTimeout) {
         clearTimeout(this.#hoverTimeout);
         this.#hoverTimeout = null;
@@ -307,7 +311,7 @@ export class BilingualSubtitleManager {
       // 延迟隐藏，给用户机会把鼠标移入 tooltip
       this.#hoverTimeout = setTimeout(() => {
         if (!this.#isHoveringTooltip) {
-          target.classList.remove("lingoflow-word-hover");
+          target.classList.remove("theboringenglish-word-hover");
           this.#activeWordEl = null;
           this.#hideWordTooltip();
           if (this.#videoEl && this.#videoEl.paused) {
@@ -333,7 +337,7 @@ export class BilingualSubtitleManager {
 
     // 创建提示框
     this.#tooltipEl = document.createElement("div");
-    this.#tooltipEl.className = "lingoflow-word-tooltip";
+    this.#tooltipEl.className = "theboringenglish-word-tooltip";
     
     this.#tooltipEl.onmouseenter = () => {
       this.#isHoveringTooltip = true;
@@ -342,7 +346,7 @@ export class BilingualSubtitleManager {
       this.#isHoveringTooltip = false;
       this.#hideWordTooltip();
       if (this.#activeWordEl) {
-        this.#activeWordEl.classList.remove("lingoflow-word-hover");
+        this.#activeWordEl.classList.remove("theboringenglish-word-hover");
         this.#activeWordEl = null;
       }
       if (this.#videoEl && this.#videoEl.paused) {
@@ -351,7 +355,7 @@ export class BilingualSubtitleManager {
     };
 
     const loadingDiv = document.createElement("div");
-    loadingDiv.className = "lingoflow-word-loading";
+    loadingDiv.className = "theboringenglish-word-loading";
     loadingDiv.textContent = "Looking up...";
     this.#tooltipEl.replaceChildren(loadingDiv);
     
@@ -439,7 +443,7 @@ export class BilingualSubtitleManager {
       const currentTimeMs = this.#getCurrentSubtitleStartTime();
       
       // 添加单词和完整信息到生词本
-      const event = new CustomEvent('lingoflow-add-word', { 
+      const event = new CustomEvent('theboringenglish-add-word', { 
         detail: { 
           word,
           phonetic,  // 现在只包含音标本身，如 ɪnˈkredəb(ə)l
@@ -451,9 +455,9 @@ export class BilingualSubtitleManager {
       document.dispatchEvent(event);
 
       if (dictResult && (dictResult.trs || dictResult.aus || dictResult.sentences)) {
-        let content = `<div class="lingoflow-word-tooltip-header">
+        let content = `<div class="theboringenglish-word-tooltip-header">
           <span>${word}</span>
-          <button class="lingoflow-word-tooltip-close" onclick="this.closest('.lingoflow-word-tooltip').remove()">×</button>
+          <button class="theboringenglish-word-tooltip-close" onclick="this.closest('.theboringenglish-word-tooltip').remove()">×</button>
         </div>`;
 
         // 显示音标
@@ -461,7 +465,7 @@ export class BilingualSubtitleManager {
           content += '<div>';
           dictResult.aus.forEach((au) => {
             if (au.phonetic) {
-              content += `<span class="lingoflow-word-phonetic">${au.phonetic}</span>`;
+              content += `<span class="theboringenglish-word-phonetic">${au.phonetic}</span>`;
             }
           });
           content += '</div>';
@@ -470,17 +474,17 @@ export class BilingualSubtitleManager {
         // 显示释义
         if (dictResult.trs) {
           dictResult.trs.slice(0, 3).forEach((tr) => {
-            content += `<div class="lingoflow-word-definition">${tr.pos ? '<span class="lingoflow-word-pos">' + tr.pos + "</span> " : ""}${tr.def}</div>`;
+            content += `<div class="theboringenglish-word-definition">${tr.pos ? '<span class="theboringenglish-word-pos">' + tr.pos + "</span> " : ""}${tr.def}</div>`;
           });
         }
 
         // 显示例句
         if (dictResult.sentences && dictResult.sentences.length > 0) {
-          content += `<div class="lingoflow-word-example">
-            <div class="lingoflow-word-example-title">${i18n("example_sentences")}</div>`;
+          content += `<div class="theboringenglish-word-example">
+            <div class="theboringenglish-word-example-title">${i18n("example_sentences")}</div>`;
           dictResult.sentences.slice(0, 2).forEach((sentence) => {
-            content += `<div class="lingoflow-word-example-sentence">${sentence.eng}</div>
-              <div class="lingoflow-word-example-translation">${sentence.trans}</div>`;
+            content += `<div class="theboringenglish-word-example-sentence">${sentence.eng}</div>
+              <div class="theboringenglish-word-example-translation">${sentence.trans}</div>`;
           });
           content += '</div>';
         }
@@ -496,21 +500,7 @@ export class BilingualSubtitleManager {
     } catch (error) {
       logger.info("Dictionary lookup failed for word:", word, error);
       
-      // 获取当前字幕的时间戳
-      const currentTimeMs = this.#getCurrentSubtitleStartTime();
-
-      // 即使查询失败，也将单词添加到生词本（无完整信息）
-      const event = new CustomEvent('lingoflow-add-word', { 
-        detail: { 
-          word,
-          phonetic: "",
-          definition: "",
-          examples: [],
-          timestamp: currentTimeMs // 添加时间戳
-        } 
-      });
-      document.dispatchEvent(event);
-      
+      // 查词失败时只显示错误提示，不写入生词本（避免产生无信息的垃圾条目）
       if (this.#tooltipEl) {
         this.#tooltipEl.replaceChildren(...this.#buildTooltipDOM(word, null, true));
       }
@@ -537,11 +527,11 @@ export class BilingualSubtitleManager {
 
     // Header
     const header = document.createElement("div");
-    header.className = "lingoflow-word-tooltip-header";
+    header.className = "theboringenglish-word-tooltip-header";
     const wordSpan = document.createElement("span");
     wordSpan.textContent = word;
     const closeBtn = document.createElement("button");
-    closeBtn.className = "lingoflow-word-tooltip-close";
+    closeBtn.className = "theboringenglish-word-tooltip-close";
     closeBtn.textContent = "×";
     closeBtn.addEventListener("click", () => {
       if (this.#tooltipEl) this.#tooltipEl.remove();
@@ -552,7 +542,7 @@ export class BilingualSubtitleManager {
 
     if (failed) {
       const def = document.createElement("div");
-      def.className = "lingoflow-word-definition";
+      def.className = "theboringenglish-word-definition";
       def.textContent = "Failed to load definition";
       nodes.push(def);
       return nodes;
@@ -560,7 +550,7 @@ export class BilingualSubtitleManager {
 
     if (!dictResult) {
       const def = document.createElement("div");
-      def.className = "lingoflow-word-definition";
+      def.className = "theboringenglish-word-definition";
       def.textContent = "No definition found";
       nodes.push(def);
       return nodes;
@@ -572,7 +562,7 @@ export class BilingualSubtitleManager {
       dictResult.aus.forEach((au) => {
         if (au.phonetic) {
           const span = document.createElement("span");
-          span.className = "lingoflow-word-phonetic";
+          span.className = "theboringenglish-word-phonetic";
           span.textContent = au.phonetic;
           phoneticDiv.appendChild(span);
         }
@@ -584,10 +574,10 @@ export class BilingualSubtitleManager {
     if (dictResult.trs) {
       dictResult.trs.slice(0, 3).forEach((tr) => {
         const defDiv = document.createElement("div");
-        defDiv.className = "lingoflow-word-definition";
+        defDiv.className = "theboringenglish-word-definition";
         if (tr.pos) {
           const posSpan = document.createElement("span");
-          posSpan.className = "lingoflow-word-pos";
+          posSpan.className = "theboringenglish-word-pos";
           posSpan.textContent = tr.pos + " ";
           defDiv.appendChild(posSpan);
         }
@@ -599,18 +589,18 @@ export class BilingualSubtitleManager {
     // 例句
     if (dictResult.sentences && dictResult.sentences.length > 0) {
       const exWrap = document.createElement("div");
-      exWrap.className = "lingoflow-word-example";
+      exWrap.className = "theboringenglish-word-example";
       const exTitle = document.createElement("div");
-      exTitle.className = "lingoflow-word-example-title";
+      exTitle.className = "theboringenglish-word-example-title";
       const i18n = newI18n(this.#setting.uiLang || "en");
       exTitle.textContent = i18n("example_sentences");
       exWrap.appendChild(exTitle);
       dictResult.sentences.slice(0, 2).forEach((sentence) => {
         const engDiv = document.createElement("div");
-        engDiv.className = "lingoflow-word-example-sentence";
+        engDiv.className = "theboringenglish-word-example-sentence";
         engDiv.textContent = sentence.eng;
         const transDiv = document.createElement("div");
-        transDiv.className = "lingoflow-word-example-translation";
+        transDiv.className = "theboringenglish-word-example-translation";
         transDiv.textContent = sentence.trans;
         exWrap.appendChild(engDiv);
         exWrap.appendChild(transDiv);
@@ -745,9 +735,22 @@ export class BilingualSubtitleManager {
    * @returns {number} 找到的字幕索引，-1 表示没找到。
    */
   #findSubtitleIndexForTime(currentTimeMs) {
-    return this.#formattedSubtitles.findIndex(
-      (sub) => currentTimeMs >= sub.start && currentTimeMs <= sub.end
-    );
+    // 使用二分查找 O(log n)，对长视频性能更优
+    const subs = this.#formattedSubtitles;
+    let lo = 0;
+    let hi = subs.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      const sub = subs[mid];
+      if (currentTimeMs < sub.start) {
+        hi = mid - 1;
+      } else if (currentTimeMs > sub.end) {
+        lo = mid + 1;
+      } else {
+        return mid; // 命中
+      }
+    }
+    return -1;
   }
 
   /**
@@ -799,7 +802,7 @@ export class BilingualSubtitleManager {
         container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
       }
       const span = document.createElement("span");
-      span.className = "lingoflow-subtitle-word";
+      span.className = "theboringenglish-subtitle-word";
       span.dataset.word = match[1];
       span.textContent = match[1];
       container.appendChild(span);
@@ -817,13 +820,19 @@ export class BilingualSubtitleManager {
   #triggerTranslations(currentTimeMs) {
     const { preTrans = 90 } = this.#setting;
     const lookAheadMs = preTrans * 1000;
+    const now = Date.now();
+    const cooldownMs = 15000; // 冷却时间 15 秒，避免频繁重复请求失败的接口
 
     for (const sub of this.#formattedSubtitles) {
       const isCurrent = sub.start <= currentTimeMs && sub.end >= currentTimeMs;
       const isUpcoming =
         sub.start > currentTimeMs && sub.start <= currentTimeMs + lookAheadMs;
-      // 如果没有翻译或已被标记可重试且没有正在翻译中，则触发翻译
-      const needsTranslation = (!sub.translation || sub.retryable) && !sub.isTranslating;
+      
+      // 检查冷却时间
+      const isCoolingDown = sub.lastTranslateTime && (now - sub.lastTranslateTime < cooldownMs);
+      
+      // 如果没有翻译或已被标记可重试，且没有正在翻译中，且不在冷却中
+      const needsTranslation = (!sub.translation || sub.retryable) && !sub.isTranslating && !isCoolingDown;
 
       if ((isCurrent || isUpcoming) && needsTranslation) {
         this.#translateAndStore(sub);
@@ -837,20 +846,38 @@ export class BilingualSubtitleManager {
    */
   async #translateAndStore(subtitle) {
     subtitle.isTranslating = true;
+    subtitle.lastTranslateTime = Date.now(); // 记录本次尝试翻译的时间戳以进行冷却控制
     try {
       const { fromLang, toLang, apiSetting } = this.#setting;
-      const { trText } = await apiTranslate({
-        text: subtitle.text,
-        fromLang,
-        toLang,
-        apiSetting,
-      });
+      let trText = "";
+      if (fromLang && toLang && fromLang.split("-")[0].toLowerCase() === toLang.split("-")[0].toLowerCase()) {
+        trText = subtitle.text;
+      } else {
+        const res = await apiTranslate({
+          text: subtitle.text,
+          fromLang,
+          toLang,
+          apiSetting,
+        });
+        trText = res?.trText;
+      }
+      if (!trText) {
+        throw new Error("Empty translation result");
+      }
       subtitle.translation = trText;
       subtitle.retryable = false; // 成功后清除重试标记
+      subtitle.retryCount = 0; // 重置重试次数
     } catch (error) {
       logger.info("Translation failed for:", subtitle.text, error);
-      subtitle.translation = "[Translation failed]";
-      subtitle.retryable = true; // 标记失败，后续滚动/跳转到这里会再次尝试
+      subtitle.retryCount = (subtitle.retryCount || 0) + 1;
+      
+      if (subtitle.retryCount >= 3) {
+        subtitle.translation = "[Translation failed]";
+        subtitle.retryable = false; // 达到最大重试次数，不再自动重试
+      } else {
+        subtitle.translation = `[Translation failed] (Retrying ${subtitle.retryCount}/3...)`;
+        subtitle.retryable = true; // 允许冷却后重试
+      }
     } finally {
       subtitle.isTranslating = false;
 
@@ -883,6 +910,11 @@ export class BilingualSubtitleManager {
 
     this.#formattedSubtitles.push(...newSubtitlesChunk);
     this.#formattedSubtitles.sort((a, b) => a.start - b.start);
+    this.#formattedSubtitles = this.#formattedSubtitles.filter((sub, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr[idx - 1];
+      return !(sub.start === prev.start && sub.text === prev.text);
+    });
     this.#currentSubtitleIndex = -1;
     this.onTimeUpdate();
     
@@ -893,12 +925,33 @@ export class BilingualSubtitleManager {
   }
 
   updateSetting(obj) {
+    const isApiChanged = obj.apiSlug !== undefined && obj.apiSlug !== this.#setting.apiSlug;
     this.#setting = { ...this.#setting, ...obj };
+    
+    if (isApiChanged) {
+      logger.info("Bilingual Subtitle Manager: API slug changed, resetting failed translations...");
+      this.#formattedSubtitles.forEach(sub => {
+        // 如果是失败或者带有错误提示的字幕，彻底重置翻译状态，以便新引擎能重新尝试
+        if (sub.retryable || sub.translation?.includes("[Translation failed]") || sub.retryCount > 0) {
+          sub.translation = "";
+          sub.retryable = false;
+          sub.retryCount = 0;
+          sub.lastTranslateTime = 0;
+          sub.isTranslating = false;
+        }
+      });
+    }
+
     if (this.#videoEl) {
       const currentTimeMs = this.#videoEl.currentTime * 1000;
       const subtitleIndex = this.#findSubtitleIndexForTime(currentTimeMs);
       const subtitle = subtitleIndex !== -1 ? this.#formattedSubtitles[subtitleIndex] : null;
       this.#updateCaptionDisplay(subtitle);
+      
+      // 如果 API 更改了，立即重新评估并尝试翻译当前和临近的字幕
+      if (isApiChanged) {
+        this.onTimeUpdate();
+      }
     }
   }
 

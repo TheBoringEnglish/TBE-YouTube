@@ -1,5 +1,5 @@
 import { DEFAULT_FETCH_INTERVAL, DEFAULT_FETCH_LIMIT } from "../config";
-import { lingoflowLog } from "./log";
+import { theboringenglishLog } from "./log";
 
 /**
  * 任务池
@@ -70,7 +70,7 @@ class TaskPool {
       const res = await fn(args);
       resolve(res);
     } catch (err) {
-      lingoflowLog("task pool", err);
+      theboringenglishLog("task pool", err);
       if (retry < this.#maxRetry) {
         setTimeout(() => {
           this.#pool.unshift({ ...task, retry: retry + 1 }); // unshift 保证重试任务优先

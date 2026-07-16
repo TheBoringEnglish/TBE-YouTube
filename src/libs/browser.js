@@ -7,7 +7,7 @@ import browserPolyfill from "webextension-polyfill";
 export const browser = browserPolyfill;
 
 export const getContext = () => {
-  const context = globalThis.__LINGOFLOW_CONTEXT__;
+  const context = globalThis.__THEBORINGENGLISH_CONTEXT__;
   if (context) return context;
 
   if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.id) {

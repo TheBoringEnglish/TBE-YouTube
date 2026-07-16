@@ -15,8 +15,8 @@ export function injectJs(file, id) {
       this.remove();
     };
     (document.head || document.documentElement).appendChild(script);
-    console.log(`LingoFlow: Injected ${file}`);
+    console.log(`TheBoringEnglish: Injected ${file}`);
   } catch (err) {
-    console.error(`LingoFlow: Failed to inject ${file}`, err);
+    console.error(`TheBoringEnglish: Failed to inject ${file}`, err);
   }
 }

@@ -7,10 +7,10 @@ import { logger } from "./libs/log.js";
  * 入口函数
  */
 export async function run() {
-  console.log("[LingoFlow] run() triggered");
+  console.log("[TheBoringEnglish] run() triggered");
   try {
     const setting = await getSettingWithDefault();
-    console.log("[LingoFlow] setting loaded", setting);
+    console.log("[TheBoringEnglish] setting loaded", setting);
 
     logger.setLevel(setting.logLevel);
 
@@ -25,6 +25,6 @@ export async function run() {
     // 字幕翻译
     runSubtitle({ href, setting });
   } catch (err) {
-    console.error("[LingoFlow]", err);
+    console.error("[TheBoringEnglish]", err);
   }
 }

@@ -203,7 +203,7 @@ export const sha256 = async (text, salt) => {
  * 生成随机事件名称
  * @returns
  */
-export const genEventName = () => `lingoflow-${btoa(Math.random()).slice(3, 11)}`;
+export const genEventName = () => `theboringenglish-${btoa(Math.random()).slice(3, 11)}`;
 
 /**
  * 判断两个 Set 是否相同
@@ -456,7 +456,7 @@ function getMimeTypeFromFilename(filename) {
  * @param {*} str
  * @param {*} filename
  */
-export function downloadBlobFile(str, filename = "lingoflow-file.txt") {
+export function downloadBlobFile(str, filename = "theboringenglish-file.txt") {
   const mimeType = getMimeTypeFromFilename(filename);
   const blob = new Blob([str], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -464,7 +464,7 @@ export function downloadBlobFile(str, filename = "lingoflow-file.txt") {
   const a = document.createElement("a");
   a.style.display = "none";
   a.href = url;
-  a.download = filename || `lingoflow-file.txt`;
+  a.download = filename || `theboringenglish-file.txt`;
 
   document.body.appendChild(a);
   a.click();

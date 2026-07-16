@@ -1,5 +1,5 @@
 /**
- * LingoFlow Web 端 API 通信服务
+ * TheBoringEnglish Web 端 API 通信服务
  */
 
 /**
@@ -22,7 +22,7 @@ function getApiUrl(serverUrl) {
 }
 
 /**
- * 登录 LingoFlow Web 端
+ * 登录 TheBoringEnglish Web 端
  * @param {string} serverUrl 服务器地址
  * @param {string} username 用户名
  * @param {string} password 密码
@@ -62,7 +62,7 @@ export async function loginToWeb(serverUrl, username, password) {
 }
 
 /**
- * 同步生词到 LingoFlow Web 端
+ * 同步生词到 TheBoringEnglish Web 端
  * @param {string} serverUrl 服务器地址
  * @param {string} token 认证 Token
  * @param {object} note 单词对象
@@ -88,7 +88,7 @@ export async function syncWordToWeb(serverUrl, token, note) {
 }
 
 /**
- * 导入 YouTube 字幕为 LingoFlow Web 精读文章
+ * 导入 YouTube 字幕为 TheBoringEnglish Web 精读文章
  * @param {string} serverUrl 服务器地址
  * @param {string} token 认证 Token
  * @param {object} params 文章参数 { title, content, sourceUrl, imageUrl }

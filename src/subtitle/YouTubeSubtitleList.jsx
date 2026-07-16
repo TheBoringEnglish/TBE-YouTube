@@ -1,5 +1,5 @@
 import { logger } from "../libs/log";
-import { syncWordToWeb, importSubtitleToWeb } from "../apis/lingoflow";
+import { syncWordToWeb, importSubtitleToWeb } from "../apis/theboringenglish";
 
 /**
  * YouTube 字幕列表管理器
@@ -16,8 +16,10 @@ export class YouTubeSubtitleList {
 
     this.container = null;
     this.subtitleListEl = null;
+    this.subtitleListUl = null;
     this.vocabularyListEl = null;
     this.loopAutoScroll = null;
+    this.lastScrolledIndex = -1;
     this._resizeObserver = null;
     this._themeObserver = null;
     this._isDragging = false;
@@ -29,10 +31,12 @@ export class YouTubeSubtitleList {
     this.activeTab = "subtitles";
 
     this.handleWordAdded = this.handleWordAdded.bind(this);
-    document.addEventListener("lingoflow-add-word", this.handleWordAdded);
+    document.addEventListener("theboringenglish-add-word", this.handleWordAdded);
 
     window.addEventListener("message", (event) => {
-      if (event.data && event.data.type === "LINGOFLOW_TRANSLATOR_JUMP_TO_TIME") {
+      // 严格验证消息来源，防止跨源消息注入
+      if (event.origin !== window.location.origin) return;
+      if (event.data && event.data.type === "THEBORINGENGLISH_TRANSLATOR_JUMP_TO_TIME") {
         if (this.videoEl) {
           this.videoEl.currentTime = event.data.time / 1000;
           if (this.videoEl.paused) {
@@ -75,9 +79,9 @@ export class YouTubeSubtitleList {
       (async () => {
         try {
           const syncResult = await new Promise((resolve) => {
-            chrome.storage.local.get(["lingoflow_sync_config"], resolve);
+            chrome.storage.local.get(["theboringenglish_sync_config"], resolve);
           });
-          const config = syncResult.lingoflow_sync_config;
+          const config = syncResult.theboringenglish_sync_config;
           if (config && config.isConnected && config.token) {
             const formattedExamples = examples.map(ex => ({
               text: ex.eng || ex.text || "",
@@ -108,25 +112,28 @@ export class YouTubeSubtitleList {
   // ==================== 样式常量 ====================
   get _styles() {
     return {
-      primary: 'var(--lingoflow-primary)',
-      primarySubtle: 'var(--lingoflow-primary-subtle)',
-      bg: 'var(--lingoflow-bg)',
-      bgCard: 'var(--lingoflow-bg-card)',
-      bgHover: 'var(--lingoflow-bg-hover)',
-      bgActive: 'var(--lingoflow-bg-active)',
-      textEn: 'var(--lingoflow-text-en)',
-      textEnActive: 'var(--lingoflow-text-en-active)',
-      textZh: 'var(--lingoflow-text-zh)',
-      textZhActive: 'var(--lingoflow-text-zh-active)',
-      textTime: 'var(--lingoflow-text-time)',
-      textTimeActive: 'var(--lingoflow-text-time-active)',
-      textSecondary: 'var(--lingoflow-text-secondary)',
-      textMuted: 'var(--lingoflow-text-muted)',
-      divider: 'var(--lingoflow-divider)',
-      tabBorder: 'var(--lingoflow-tab-border)',
-      btnBg: 'var(--lingoflow-btn-bg)',
-      dragHandle: 'var(--lingoflow-drag-handle)',
-      primaryBorder: 'var(--lingoflow-primary)',
+      primary: 'var(--theboringenglish-primary)',
+      primarySubtle: 'var(--theboringenglish-primary-subtle)',
+      bg: 'var(--theboringenglish-bg)',
+      bgCard: 'var(--theboringenglish-bg-card)',
+      bgHover: 'var(--theboringenglish-bg-hover)',
+      bgActive: 'var(--theboringenglish-bg-active)',
+      textEn: 'var(--theboringenglish-text-en)',
+      textEnActive: 'var(--theboringenglish-text-en-active)',
+      textZh: 'var(--theboringenglish-text-zh)',
+      textZhActive: 'var(--theboringenglish-text-zh-active)',
+      textTime: 'var(--theboringenglish-text-time)',
+      textTimeActive: 'var(--theboringenglish-text-time-active)',
+      textSecondary: 'var(--theboringenglish-text-secondary)',
+      textMuted: 'var(--theboringenglish-text-muted)',
+      divider: 'var(--theboringenglish-divider)',
+      tabBorder: 'var(--theboringenglish-tab-border)',
+      btnBg: 'var(--theboringenglish-btn-bg)',
+      dragHandle: 'var(--theboringenglish-drag-handle)',
+      primaryBorder: 'var(--theboringenglish-primary)',
+      accent: 'var(--theboringenglish-accent)',
+      accentSubtle: 'var(--theboringenglish-accent-subtle)',
+      warmGold: 'var(--theboringenglish-warm-gold)',
     };
   }
 
@@ -154,7 +161,7 @@ export class YouTubeSubtitleList {
   _createDragHandle() {
     const s = this._styles;
     const handle = document.createElement("div");
-    handle.className = "lingoflow-drag-handle";
+    handle.className = "theboringenglish-drag-handle";
     Object.assign(handle.style, {
       position: "absolute",
       bottom: "0",
@@ -298,18 +305,24 @@ export class YouTubeSubtitleList {
         textAlign: "center",
         color: s.textMuted,
         fontSize: "13px",
-        lineHeight: "1.6",
+        lineHeight: "1.8",
       });
       const emojiDiv = document.createElement("div");
-      Object.assign(emojiDiv.style, { fontSize: "28px", marginBottom: "12px" });
-      emojiDiv.textContent = "📖";
+      Object.assign(emojiDiv.style, { fontSize: "32px", marginBottom: "14px" });
+      emojiDiv.textContent = "🌿";
+      const titleDiv = document.createElement("div");
+      Object.assign(titleDiv.style, {
+        fontWeight: "600",
+        fontSize: "14px",
+        color: s.textSecondary,
+        marginBottom: "8px",
+      });
+      titleDiv.textContent = "Your word garden is empty";
       const msgDiv = document.createElement("div");
-      msgDiv.textContent = "Hover over words in subtitles to";
-      const brEl = document.createElement("br");
-      const msg2 = document.createTextNode("add them to your vocabulary list");
-      msgDiv.appendChild(brEl);
-      msgDiv.appendChild(msg2);
+      Object.assign(msgDiv.style, { fontSize: "12px", lineHeight: "1.7" });
+      msgDiv.textContent = "Hover over any word in the subtitles — a quiet click plants it here, ready to bloom later.";
       empty.appendChild(emojiDiv);
+      empty.appendChild(titleDiv);
       empty.appendChild(msgDiv);
       vocabList.appendChild(empty);
     }
@@ -454,7 +467,7 @@ export class YouTubeSubtitleList {
     this._downloadFile(
       JSON.stringify(data, null, 2),
       'application/json',
-      `lingoflow-vocab-${new Date().toISOString().slice(0, 10)}.json`
+      `theboringenglish-vocab-${new Date().toISOString().slice(0, 10)}.json`
     );
   }
 
@@ -481,7 +494,7 @@ export class YouTubeSubtitleList {
       `,,,,,,`,
       header, ...rows
     ].join("\n");
-    this._downloadFile(csv, 'text/csv;charset=utf-8;', `lingoflow-vocab-${new Date().toISOString().slice(0, 10)}.csv`);
+    this._downloadFile(csv, 'text/csv;charset=utf-8;', `theboringenglish-vocab-${new Date().toISOString().slice(0, 10)}.csv`);
   }
 
   exportVocabularyAsTxt() {
@@ -513,7 +526,7 @@ export class YouTubeSubtitleList {
       }
       lines.push("");
     });
-    this._downloadFile(lines.join("\n"), 'text/plain;charset=utf-8;', `lingoflow-vocab-${new Date().toISOString().slice(0, 10)}.txt`);
+    this._downloadFile(lines.join("\n"), 'text/plain;charset=utf-8;', `theboringenglish-vocab-${new Date().toISOString().slice(0, 10)}.txt`);
   }
 
   exportVocabularyAsMd() {
@@ -546,7 +559,7 @@ export class YouTubeSubtitleList {
       }
       lines.push("");
     });
-    this._downloadFile(lines.join("\n"), 'text/markdown;charset=utf-8;', `lingoflow-vocab-${new Date().toISOString().slice(0, 10)}.md`);
+    this._downloadFile(lines.join("\n"), 'text/markdown;charset=utf-8;', `theboringenglish-vocab-${new Date().toISOString().slice(0, 10)}.md`);
   }
 
   _downloadFile(content, mimeType, filename) {
@@ -562,10 +575,16 @@ export class YouTubeSubtitleList {
 
   // ==================== 初始化与字幕渲染 ====================
   initialize(subtitleEvents) {
-    this.subtitleData = subtitleEvents.filter(
+    const rawData = subtitleEvents.filter(
       (k) => k?.segs && Boolean(k?.segs.map((s) => s.utf8 || "").join("").replace(/\s+/g, " ").trim())
     );
-    this.subtitleDataTime = subtitleEvents.map((k) => k.tStartMs);
+    // 原始字幕数据层去重
+    this.subtitleData = rawData.filter((sub, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr[idx - 1];
+      return !(sub.tStartMs === prev.tStartMs && sub.dDurationMs === prev.dDurationMs);
+    });
+    this.subtitleDataTime = this.subtitleData.map((k) => k.tStartMs);
     if (this.subtitleData.length > 0) {
       this.createSubtitleList();
       this.setupEventListeners();
@@ -573,42 +592,197 @@ export class YouTubeSubtitleList {
   }
 
   setBilingualSubtitles(bilingualData) {
-    this.bilingualSubtitles = bilingualData;
-    if (this.subtitleListEl) {
-      this.updateBilingualSubtitles();
+    // 双语字幕数据层去重
+    this.bilingualSubtitles = (bilingualData || []).filter((sub, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr[idx - 1];
+      return !(sub.start === prev.start && sub.text === prev.text);
+    });
+    if (this.subtitleListEl && this.subtitleListUl) {
+      this.renderSubtitleItems();
     } else {
       this.createSubtitleList();
       this.setupEventListeners();
     }
   }
 
-  updateBilingualSubtitles() {
-    if (!this.subtitleListEl) return;
-    const items = this.subtitleListEl.querySelectorAll(".lingoflow-youtube-item");
-    for (let i = 0; i < items.length && i < this.bilingualSubtitles.length; i++) {
-      const item = items[i];
-      const sub = this.bilingualSubtitles[i];
-      if (sub) {
-        if (typeof sub.start === "number") {
-          item.dataset.time = sub.start;
-          const timeSpan = item.querySelector(".lingoflow-time-badge");
-          if (timeSpan) timeSpan.textContent = this.millisToMinutesAndSeconds(sub.start);
-        }
-        const textSpan = item.querySelector(".lingoflow-youtube-original");
-        if (textSpan && sub.text) textSpan.textContent = sub.text;
-        const translationEl = item.querySelector(".lingoflow-youtube-translation");
-        if (translationEl && sub.translation) {
+  renderSubtitleItems() {
+    if (!this.subtitleListUl) return;
+    this.subtitleListUl.innerHTML = "";
+    const s = this._styles;
+
+    // 如果双语字幕有数据，则直接渲染双语字幕数据 (AI 断句后或已加载翻译的数据)
+    if (this.bilingualSubtitles && this.bilingualSubtitles.length > 0) {
+      this.bilingualSubtitles.forEach((sub, i) => {
+        const li = document.createElement("li");
+        li.id = `theboringenglish-youtube-item-${i}`;
+        li.className = "theboringenglish-youtube-item";
+        Object.assign(li.style, {
+          cursor: "pointer",
+          padding: "12px 16px",
+          transition: "all 0.1s ease",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "0",
+          borderLeft: "2px solid transparent",
+          borderBottom: `1px solid ${s.divider}`,
+        });
+
+        li.dataset.time = sub.start;
+        li.dataset.startTime = sub.start;
+        li.dataset.endTime = sub.end;
+
+        // 时间标签
+        const timeSpan = document.createElement("span");
+        timeSpan.className = "theboringenglish-time-badge";
+        timeSpan.textContent = this.millisToMinutesAndSeconds(sub.start);
+        Object.assign(timeSpan.style, {
+          color: s.textTime,
+          fontSize: "12px",
+          fontFamily: "'SF Mono', 'Fira Code', monospace",
+          flexShrink: "0",
+          width: "42px",
+          lineHeight: "24px",
+          marginTop: "1px",
+        });
+
+        // 文本容器
+        const textContainer = document.createElement("div");
+        Object.assign(textContainer.style, { flexGrow: "1", minWidth: "0" });
+
+        const textSpan = document.createElement("div");
+        textSpan.className = "theboringenglish-youtube-original";
+        textSpan.textContent = sub.text || "";
+        Object.assign(textSpan.style, {
+          color: s.textEn,
+          fontSize: "16.5px",
+          lineHeight: "1.5",
+          fontWeight: "500",
+          wordBreak: "break-word",
+        });
+
+        const translationEl = document.createElement("div");
+        translationEl.className = "theboringenglish-youtube-translation";
+        if (sub.translation) {
           translationEl.textContent = sub.translation;
           translationEl.style.display = "block";
-        } else if (translationEl) {
+        } else {
           translationEl.style.display = "none";
         }
-      }
+        Object.assign(translationEl.style, {
+          color: s.textZh,
+          fontSize: "15px",
+          lineHeight: "1.5",
+          marginTop: "5px",
+          fontWeight: "400",
+          wordBreak: "break-word",
+        });
+
+        // 悬停效果
+        li.addEventListener("mouseenter", () => {
+          if (!li.classList.contains("theboringenglish-active")) {
+            li.style.backgroundColor = s.bgHover;
+          }
+        });
+        li.addEventListener("mouseleave", () => {
+          if (!li.classList.contains("theboringenglish-active")) {
+            li.style.backgroundColor = "transparent";
+          }
+        });
+
+        textContainer.appendChild(textSpan);
+        textContainer.appendChild(translationEl);
+        li.appendChild(timeSpan);
+        li.appendChild(textContainer);
+        this.subtitleListUl.appendChild(li);
+      });
+    } else {
+      // 否则，渲染原始字幕数据（此时通常还没有进行 AI 翻译）
+      (this.subtitleData || []).forEach((el, i) => {
+        const { segs = [], tStartMs, dDurationMs } = el || {};
+
+        const li = document.createElement("li");
+        li.id = `theboringenglish-youtube-item-${i}`;
+        li.className = "theboringenglish-youtube-item";
+        Object.assign(li.style, {
+          cursor: "pointer",
+          padding: "12px 16px",
+          transition: "all 0.1s ease",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "0",
+          borderLeft: "2px solid transparent",
+          borderBottom: `1px solid ${s.divider}`,
+        });
+
+        li.dataset.time = tStartMs;
+        li.dataset.startTime = tStartMs;
+        li.dataset.endTime = tStartMs + (dDurationMs || 0);
+
+        // 时间标签
+        const timeSpan = document.createElement("span");
+        timeSpan.className = "theboringenglish-time-badge";
+        timeSpan.textContent = this.millisToMinutesAndSeconds(tStartMs);
+        Object.assign(timeSpan.style, {
+          color: s.textTime,
+          fontSize: "12px",
+          fontFamily: "'SF Mono', 'Fira Code', monospace",
+          flexShrink: "0",
+          width: "42px",
+          lineHeight: "24px",
+          marginTop: "1px",
+        });
+
+        // 文本容器
+        const textContainer = document.createElement("div");
+        Object.assign(textContainer.style, { flexGrow: "1", minWidth: "0" });
+
+        const textSpan = document.createElement("div");
+        textSpan.className = "theboringenglish-youtube-original";
+        textSpan.textContent = segs.map((k) => k.utf8 || "").join("").replace(/\s+/g, " ").trim();
+        Object.assign(textSpan.style, {
+          color: s.textEn,
+          fontSize: "16.5px",
+          lineHeight: "1.5",
+          fontWeight: "500",
+          wordBreak: "break-word",
+        });
+
+        const translationEl = document.createElement("div");
+        translationEl.className = "theboringenglish-youtube-translation";
+        translationEl.style.display = "none";
+        Object.assign(translationEl.style, {
+          color: s.textZh,
+          fontSize: "15px",
+          lineHeight: "1.5",
+          marginTop: "5px",
+          fontWeight: "400",
+          wordBreak: "break-word",
+        });
+
+        // 悬停效果
+        li.addEventListener("mouseenter", () => {
+          if (!li.classList.contains("theboringenglish-active")) {
+            li.style.backgroundColor = s.bgHover;
+          }
+        });
+        li.addEventListener("mouseleave", () => {
+          if (!li.classList.contains("theboringenglish-active")) {
+            li.style.backgroundColor = "transparent";
+          }
+        });
+
+        textContainer.appendChild(textSpan);
+        textContainer.appendChild(translationEl);
+        li.appendChild(timeSpan);
+        li.appendChild(textContainer);
+        this.subtitleListUl.appendChild(li);
+      });
     }
-    for (let i = this.bilingualSubtitles.length; i < items.length; i++) {
-      const translationEl = items[i].querySelector(".lingoflow-youtube-translation");
-      if (translationEl) translationEl.style.display = "none";
-    }
+  }
+
+  updateBilingualSubtitles() {
+    this.renderSubtitleItems();
   }
 
   millisToMinutesAndSeconds(millis) {
@@ -677,10 +851,10 @@ export class YouTubeSubtitleList {
     if (!this.videoEl) return;
     const s = this._styles;
 
-    this.container = document.getElementById("lingoflow-youtube-subtitle-list-container");
+    this.container = document.getElementById("theboringenglish-youtube-subtitle-list-container");
     if (!this.container) {
       this.container = document.createElement("div");
-      this.container.id = "lingoflow-youtube-subtitle-list-container";
+      this.container.id = "theboringenglish-youtube-subtitle-list-container";
       Object.assign(this.container.style, {
         height: `${this._getVideoPlayerHeight()}px`,
         zIndex: "999",
@@ -688,11 +862,11 @@ export class YouTubeSubtitleList {
         fontSize: "14px",
         padding: "0",
         border: `1px solid ${s.tabBorder}`,
-        borderRadius: "8px",
+        borderRadius: "12px",
         width: "100%",
         marginBottom: "16px",
-        boxShadow: `0 4px 16px rgba(0,0,0,0.2)`,
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        boxShadow: `0 4px 24px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.08)`,
+        fontFamily: "'Georgia', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', serif",
         display: "flex",
         flexDirection: "column",
         position: "relative",
@@ -716,6 +890,86 @@ export class YouTubeSubtitleList {
     // 拖拽手柄
     this.container.appendChild(this._createDragHandle());
 
+    // ===== Warm Promo Banner =====
+    const promoBanner = document.createElement("a");
+    promoBanner.id = "theboringenglish-promo-banner";
+    promoBanner.target = "_blank";
+    promoBanner.href = "https://www.theboringenglish.com";
+
+    // 异步更新 href 为实际的用户主站配置 URL
+    chrome.storage.local.get(["theboringenglish_sync_config"], (result) => {
+      const cfg = result.theboringenglish_sync_config;
+      if (cfg && cfg.serverUrl) promoBanner.href = cfg.serverUrl;
+    });
+
+    Object.assign(promoBanner.style, {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "7px 16px",
+      background: "#f59e0b",
+      color: "#1c0a00",
+      textDecoration: "none",
+      fontSize: "11.5px",
+      fontWeight: "600",
+      letterSpacing: "0.1px",
+      cursor: "pointer",
+      textAlign: "left",
+      transition: "filter 0.2s",
+      flexShrink: "0",
+      borderBottom: `1px solid rgba(140, 70, 0, 0.25)`,
+      fontFamily: "'Inter', -apple-system, sans-serif",
+    });
+
+    const bannerLeft = document.createElement("span");
+    bannerLeft.textContent = "✦ TheBoringEnglish";
+    Object.assign(bannerLeft.style, {
+      fontWeight: "700",
+      fontSize: "12px",
+      letterSpacing: "0.3px",
+      color: "#431407",
+      flexShrink: "0",
+    });
+
+    const bannerCenter = document.createElement("span");
+    bannerCenter.textContent = "Read deeply. Think clearly. Speak confidently.";
+    Object.assign(bannerCenter.style, {
+      flex: "1",
+      textAlign: "center",
+      fontSize: "10.5px",
+      color: "#451a03",
+      opacity: "0.85",
+      padding: "0 8px",
+    });
+
+    const bannerRight = document.createElement("span");
+    bannerRight.textContent = "Open →";
+    Object.assign(bannerRight.style, {
+      fontSize: "10.5px",
+      fontWeight: "700",
+      color: "#431407",
+      flexShrink: "0",
+      opacity: "0.8",
+      transition: "opacity 0.2s, transform 0.2s",
+    });
+
+    promoBanner.appendChild(bannerLeft);
+    promoBanner.appendChild(bannerCenter);
+    promoBanner.appendChild(bannerRight);
+
+    promoBanner.addEventListener("mouseenter", () => {
+      promoBanner.style.filter = "brightness(1.06)";
+      bannerRight.style.opacity = "1";
+      bannerRight.style.transform = "translateX(3px)";
+    });
+    promoBanner.addEventListener("mouseleave", () => {
+      promoBanner.style.filter = "brightness(1)";
+      bannerRight.style.opacity = "0.8";
+      bannerRight.style.transform = "translateX(0)";
+    });
+
+    this.container.appendChild(promoBanner);
+
     // ===== Tab Header =====
     const tabHeader = document.createElement("div");
     Object.assign(tabHeader.style, {
@@ -723,9 +977,9 @@ export class YouTubeSubtitleList {
       justifyContent: "space-between",
       alignItems: "center",
       borderBottom: `1px solid ${s.tabBorder}`,
-      background: "rgba(255, 255, 255, 0.02)",
+      background: s.accentSubtle,
       flexShrink: "0",
-      paddingRight: "10px",
+      paddingRight: "8px",
       paddingLeft: "4px",
     });
 
@@ -759,7 +1013,7 @@ export class YouTubeSubtitleList {
 
     // 主题切换按钮
     const themeToggle = document.createElement("button");
-    themeToggle.id = "lingoflow-theme-toggle";
+    themeToggle.id = "theboringenglish-theme-toggle";
     themeToggle.textContent = this._theme === 'dark' ? '🌙' : '☀️';
     Object.assign(themeToggle.style, {
       background: "transparent",
@@ -792,66 +1046,60 @@ export class YouTubeSubtitleList {
       themeToggle.textContent = this._theme === 'dark' ? '🌙' : '☀️';
     });
 
-    // TheBoringEnglish 官方链接
-    const brandLink = document.createElement("a");
-    brandLink.href = "https://github.com/TheBoringEnglish/TBE-YouTube";
-    brandLink.target = "_blank";
-    brandLink.textContent = "TheBoringEnglish";
-    Object.assign(brandLink.style, {
-      color: s.primary,
-      textDecoration: "none",
-      fontSize: "13px",
-      fontWeight: "700",
-      letterSpacing: "0.5px",
-      marginLeft: "auto",
-      marginRight: "12px",
-      opacity: "0.9",
-      transition: "all 0.2s ease",
-      fontFamily: "inherit",
-    });
-    brandLink.addEventListener("mouseenter", () => {
-      brandLink.style.opacity = "1";
-      brandLink.style.transform = "scale(1.05)";
-    });
-    brandLink.addEventListener("mouseleave", () => {
-      brandLink.style.opacity = "0.7";
-      brandLink.style.transform = "scale(1)";
-    });
-
-    // 一键导入 TheBoringEnglish 精读按钮
+    // 一键导入到 TheBoringEnglish 精读按钮
     const importBtn = document.createElement("button");
-    importBtn.id = "lingoflow-import-btn";
-    importBtn.textContent = "导入精读";
+    importBtn.id = "theboringenglish-import-btn";
+
+    // 根据 uiLang 显示本地化文字
+    const IMPORT_LABELS = {
+      zh: "导入到 TheBoringEnglish",
+      zh_TW: "匯入到 TheBoringEnglish",
+      ja: "TBEに読書記事として保存",
+      ko: "TheBoringEnglish에 저장",
+      fr: "Enregistrer dans TBE",
+      de: "In TBE speichern",
+      es: "Guardar en TBE",
+      pt: "Salvar no TBE",
+      it: "Salva in TBE",
+      ru: "Сохранить в TBE",
+      vi: "Lưu vào TBE",
+    };
+    chrome.storage.local.get(["setting"], (result) => {
+      const lang = result?.setting?.uiLang || "en";
+      importBtn.textContent = IMPORT_LABELS[lang] || "Save to TheBoringEnglish";
+    });
+    importBtn.textContent = "Save to TheBoringEnglish"; // 默认，异步覆盖
+
     Object.assign(importBtn.style, {
-      background: "linear-gradient(135deg, #6366f1 0%, #a78bfa 100%)",
-      color: "#fff",
+      background: "#f59e0b",
+      color: "#1c0a00",
       border: "none",
       cursor: "pointer",
       fontSize: "11px",
-      fontWeight: "600",
-      padding: "4px 8px",
-      borderRadius: "4px",
-      marginRight: "10px",
+      fontWeight: "700",
+      padding: "5px 10px",
+      borderRadius: "6px",
+      marginRight: "8px",
       marginLeft: "6px",
-      boxShadow: "0 2px 4px rgba(99, 102, 241, 0.2)",
-      transition: "all 0.2s ease",
-      fontFamily: "inherit",
-      flexShrink: "0"
+      transition: "filter 0.18s, transform 0.18s",
+      fontFamily: "'Inter', -apple-system, sans-serif",
+      flexShrink: "0",
+      letterSpacing: "0.2px",
+      whiteSpace: "nowrap",
     });
     importBtn.addEventListener("mouseenter", () => {
-      importBtn.style.opacity = "0.9";
-      importBtn.style.transform = "scale(1.05)";
+      importBtn.style.filter = "brightness(0.92)";
+      importBtn.style.transform = "translateY(-1px)";
     });
     importBtn.addEventListener("mouseleave", () => {
-      importBtn.style.opacity = "1";
-      importBtn.style.transform = "scale(1)";
+      importBtn.style.filter = "brightness(1)";
+      importBtn.style.transform = "translateY(0)";
     });
     importBtn.addEventListener("click", () => {
       this.handleImportSubtitle();
     });
 
     tabHeader.appendChild(tabButtons);
-    tabHeader.appendChild(brandLink);
     tabHeader.appendChild(importBtn);
     tabHeader.appendChild(themeToggle);
 
@@ -867,7 +1115,7 @@ export class YouTubeSubtitleList {
 
     // 字幕列表面板
     this.subtitleListEl = document.createElement("div");
-    this.subtitleListEl.id = "lingoflow-youtube-subtitle-list";
+    this.subtitleListEl.id = "theboringenglish-youtube-subtitle-list";
     Object.assign(this.subtitleListEl.style, {
       display: this.activeTab === 'subtitles' ? 'flex' : 'none',
       flexDirection: "column",
@@ -884,23 +1132,23 @@ export class YouTubeSubtitleList {
       scrollBehavior: "smooth",
     });
 
-    const subtitleListUl = document.createElement("ul");
-    Object.assign(subtitleListUl.style, {
+    this.subtitleListUl = document.createElement("ul");
+    Object.assign(this.subtitleListUl.style, {
       listStyleType: "none",
       padding: "0",
       margin: "0",
     });
-    subtitleListUl.addEventListener("click", (e) => {
-      const li = e.target.closest(".lingoflow-youtube-item");
+    this.subtitleListUl.addEventListener("click", (e) => {
+      const li = e.target.closest(".theboringenglish-youtube-item");
       if (li && li.dataset.time) this.videoEl.currentTime = parseFloat(li.dataset.time) / 1000;
     });
 
-    subtitleScroll.appendChild(subtitleListUl);
+    subtitleScroll.appendChild(this.subtitleListUl);
     this.subtitleListEl.appendChild(subtitleScroll);
 
     // 词汇表面板
     this.vocabularyListEl = document.createElement("div");
-    this.vocabularyListEl.id = "lingoflow-youtube-vocabulary-list";
+    this.vocabularyListEl.id = "theboringenglish-youtube-vocabulary-list";
     Object.assign(this.vocabularyListEl.style, {
       display: this.activeTab === 'vocabulary' ? 'flex' : 'none',
       flexDirection: "column",
@@ -914,103 +1162,7 @@ export class YouTubeSubtitleList {
     this.container.appendChild(tabContent);
 
     // ===== 填充字幕 =====
-    const itemCount = Math.max(this.bilingualSubtitles.length, this.subtitleData.length);
-    for (let i = 0; i < itemCount; i++) {
-      const el = this.subtitleData[i];
-      const { segs = [], tStartMs, dDurationMs } = el || {};
-
-      const li = document.createElement("li");
-      li.id = `lingoflow-youtube-item-${i}`;
-      li.className = "lingoflow-youtube-item";
-      Object.assign(li.style, {
-        cursor: "pointer",
-        padding: "12px 16px",
-        transition: "all 0.1s ease",
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "0",
-        borderLeft: "2px solid transparent",
-        borderBottom: `1px solid ${s.divider}`,
-      });
-
-      const subTime = this.bilingualSubtitles[i] ? this.bilingualSubtitles[i].start : el ? tStartMs : null;
-      if (subTime !== null) li.dataset.time = subTime;
-
-      // 时间标签
-      const timeSpan = document.createElement("span");
-      timeSpan.className = "lingoflow-time-badge";
-      timeSpan.textContent = subTime !== null ? this.millisToMinutesAndSeconds(subTime) : "--:--";
-      Object.assign(timeSpan.style, {
-        color: s.textTime,
-        fontSize: "12px",
-        fontFamily: "'SF Mono', 'Fira Code', monospace",
-        flexShrink: "0",
-        width: "42px",
-        lineHeight: "24px",
-        marginTop: "1px",
-      });
-
-      // 文本容器
-      const textContainer = document.createElement("div");
-      Object.assign(textContainer.style, { flexGrow: "1", minWidth: "0" });
-
-      const textSpan = document.createElement("div");
-      textSpan.className = "lingoflow-youtube-original";
-      if (this.bilingualSubtitles[i]) {
-        textSpan.textContent = this.bilingualSubtitles[i].text || "";
-      } else if (el) {
-        textSpan.textContent = segs.map((k) => k.utf8 || "").join("").replace(/\s+/g, " ").trim();
-      } else {
-        textSpan.textContent = "";
-      }
-      Object.assign(textSpan.style, {
-        color: s.textEn,
-        fontSize: "16.5px",
-        lineHeight: "1.5",
-        fontWeight: "500",
-        wordBreak: "break-word",
-      });
-
-      const translationEl = document.createElement("div");
-      translationEl.className = "lingoflow-youtube-translation";
-      if (this.bilingualSubtitles[i] && this.bilingualSubtitles[i].translation) {
-        translationEl.textContent = this.bilingualSubtitles[i].translation;
-        translationEl.style.display = "block";
-      } else {
-        translationEl.style.display = "none";
-      }
-      Object.assign(translationEl.style, {
-        color: s.textZh,
-        fontSize: "15px",
-        lineHeight: "1.5",
-        marginTop: "5px",
-        fontWeight: "400",
-        wordBreak: "break-word",
-      });
-
-      // 悬停效果
-      li.addEventListener("mouseenter", () => {
-        if (!li.classList.contains("lingoflow-active")) {
-          li.style.backgroundColor = s.bgHover;
-        }
-      });
-      li.addEventListener("mouseleave", () => {
-        if (!li.classList.contains("lingoflow-active")) {
-          li.style.backgroundColor = "transparent";
-        }
-      });
-
-      if (el) {
-        li.dataset.startTime = tStartMs;
-        li.dataset.endTime = tStartMs + (dDurationMs || 0);
-      }
-
-      textContainer.appendChild(textSpan);
-      textContainer.appendChild(translationEl);
-      li.appendChild(timeSpan);
-      li.appendChild(textContainer);
-      subtitleListUl.appendChild(li);
-    }
+    this.renderSubtitleItems();
 
     // 填充初始词汇表
     this._renderVocabulary();
@@ -1029,19 +1181,19 @@ export class YouTubeSubtitleList {
   _styleTab(tab, isActive) {
     const s = this._styles;
     Object.assign(tab.style, {
-      padding: "14px 20px",
+      padding: "13px 18px",
       cursor: "pointer",
       border: "none",
       background: "transparent",
-      fontSize: "15px",
-      fontWeight: isActive ? '600' : '600',
-      color: isActive ? s.primary : s.textSecondary,
-      borderBottom: `2px solid ${isActive ? s.primary : 'transparent'}`,
+      fontSize: "14px",
+      fontWeight: "600",
+      color: isActive ? s.warmGold : s.textSecondary,
+      borderBottom: `2px solid ${isActive ? s.warmGold : 'transparent'}`,
       marginBottom: "-1px",
-      transition: "all 0.15s",
-      fontFamily: "inherit",
+      transition: "all 0.18s ease",
+      fontFamily: "'Inter', -apple-system, sans-serif",
       letterSpacing: "0.3px",
-      opacity: isActive ? '1' : '0.85',
+      opacity: isActive ? '1' : '0.7',
     });
   }
 
@@ -1063,82 +1215,99 @@ export class YouTubeSubtitleList {
   }
 
   _injectScrollbarStyle() {
-    const styleId = "lingoflow-subtitle-theme-style";
+    const styleId = "theboringenglish-subtitle-theme-style";
     if (document.getElementById(styleId)) return;
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-      #lingoflow-youtube-subtitle-list-container {
-        --lingoflow-primary: #3b82f6;
-        --lingoflow-primary-subtle: rgba(59, 130, 246, 0.1);
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+      #theboringenglish-youtube-subtitle-list-container {
+        --theboringenglish-primary: #f59e0b;
+        --theboringenglish-primary-subtle: rgba(245, 158, 11, 0.08);
+        --theboringenglish-warm-gold: #f59e0b;
         transition: background-color 0.3s ease, border-color 0.3s ease;
       }
-      #lingoflow-youtube-subtitle-list-container[data-theme='dark'] {
-        --lingoflow-bg: #111114;
-        --lingoflow-bg-card: #111114;
-        --lingoflow-bg-hover: rgba(255, 255, 255, 0.05);
-        --lingoflow-bg-active: rgba(59, 130, 246, 0.15);
-        --lingoflow-text-en: #ffffff;
-        --lingoflow-text-en-active: #ffffff;
-        --lingoflow-text-zh: #d1d5db;
-        --lingoflow-text-zh-active: #ffffff;
-        --lingoflow-text-secondary: #e5e7eb;
-        --lingoflow-text-muted: #9ca3af;
-        --lingoflow-text-time: #9ca3af;
-        --lingoflow-text-time-active: #60a5fa;
-        --lingoflow-divider: rgba(255, 255, 255, 0.08);
-        --lingoflow-tab-border: rgba(255, 255, 255, 0.12);
-        --lingoflow-btn-bg: rgba(255, 255, 255, 0.1);
-        --lingoflow-drag-handle: rgba(255, 255, 255, 0.2);
+
+      /* ── Dark Theme (warm dark, like aged paper at night) ── */
+      #theboringenglish-youtube-subtitle-list-container[data-theme='dark'] {
+        --theboringenglish-bg: #1a1510;
+        --theboringenglish-bg-card: #1a1510;
+        --theboringenglish-bg-hover: rgba(251, 191, 36, 0.06);
+        --theboringenglish-bg-active: rgba(245, 158, 11, 0.14);
+        --theboringenglish-accent: rgba(245, 158, 11, 0.1);
+        --theboringenglish-accent-subtle: rgba(245, 158, 11, 0.04);
+        --theboringenglish-text-en: #f5ead6;
+        --theboringenglish-text-en-active: #fef3c7;
+        --theboringenglish-text-zh: #c4a97d;
+        --theboringenglish-text-zh-active: #fde68a;
+        --theboringenglish-text-secondary: #d6c4a0;
+        --theboringenglish-text-muted: #7d6a4f;
+        --theboringenglish-text-time: #8a7459;
+        --theboringenglish-text-time-active: #fbbf24;
+        --theboringenglish-divider: rgba(180, 140, 80, 0.12);
+        --theboringenglish-tab-border: rgba(180, 140, 80, 0.18);
+        --theboringenglish-btn-bg: rgba(251, 191, 36, 0.1);
+        --theboringenglish-drag-handle: rgba(180, 140, 80, 0.25);
       }
-      #lingoflow-youtube-subtitle-list-container[data-theme='light'] {
-        --lingoflow-bg: #ffffff;
-        --lingoflow-bg-card: #ffffff;
-        --lingoflow-bg-hover: rgba(0, 0, 0, 0.03);
-        --lingoflow-bg-active: rgba(59, 130, 246, 0.08);
-        --lingoflow-text-en: #18181b;
-        --lingoflow-text-en-active: #000000;
-        --lingoflow-text-zh: #52525b;
-        --lingoflow-text-zh-active: #18181b;
-        --lingoflow-text-secondary: #3f3f46;
-        --lingoflow-text-muted: #71717a;
-        --lingoflow-text-time: #a1a1aa;
-        --lingoflow-text-time-active: #3b82f6;
-        --lingoflow-divider: rgba(0, 0, 0, 0.06);
-        --lingoflow-tab-border: rgba(0, 0, 0, 0.08);
-        --lingoflow-btn-bg: rgba(0, 0, 0, 0.04);
-        --lingoflow-drag-handle: rgba(0, 0, 0, 0.1);
+
+      /* ── Light Theme (warm cream, like a sunlit reading nook) ── */
+      #theboringenglish-youtube-subtitle-list-container[data-theme='light'] {
+        --theboringenglish-bg: #fefaf3;
+        --theboringenglish-bg-card: #fefaf3;
+        --theboringenglish-bg-hover: rgba(245, 158, 11, 0.04);
+        --theboringenglish-bg-active: rgba(245, 158, 11, 0.09);
+        --theboringenglish-accent: rgba(245, 158, 11, 0.08);
+        --theboringenglish-accent-subtle: rgba(245, 158, 11, 0.05);
+        --theboringenglish-text-en: #1c1007;
+        --theboringenglish-text-en-active: #0f0600;
+        --theboringenglish-text-zh: #6b4c26;
+        --theboringenglish-text-zh-active: #3d2000;
+        --theboringenglish-text-secondary: #3d2b12;
+        --theboringenglish-text-muted: #a08050;
+        --theboringenglish-text-time: #b89050;
+        --theboringenglish-text-time-active: #b45309;
+        --theboringenglish-divider: rgba(180, 130, 60, 0.12);
+        --theboringenglish-tab-border: rgba(180, 130, 60, 0.16);
+        --theboringenglish-btn-bg: rgba(180, 130, 60, 0.07);
+        --theboringenglish-drag-handle: rgba(180, 130, 60, 0.18);
       }
-      .lingoflow-youtube-item {
+
+      .theboringenglish-youtube-item {
         border-left: 3px solid transparent !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
         position: relative;
       }
-      .lingoflow-active {
-        background-color: var(--lingoflow-bg-active) !important;
-        border-left-color: var(--lingoflow-primary) !important;
+      .theboringenglish-active {
+        background-color: var(--theboringenglish-bg-active) !important;
+        border-left-color: var(--theboringenglish-primary) !important;
       }
-      #lingoflow-youtube-subtitle-list-container[data-theme='dark'] .lingoflow-active {
-        background: linear-gradient(90deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.03) 100%) !important;
+      #theboringenglish-youtube-subtitle-list-container[data-theme='dark'] .theboringenglish-active {
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0.16) 0%, rgba(245, 158, 11, 0.03) 100%) !important;
       }
-      #lingoflow-youtube-subtitle-list-container[data-theme='light'] .lingoflow-active {
-        background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%) !important;
+      #theboringenglish-youtube-subtitle-list-container[data-theme='light'] .theboringenglish-active {
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0.10) 0%, rgba(245, 158, 11, 0.02) 100%) !important;
       }
-      #lingoflow-youtube-subtitle-list-container *::-webkit-scrollbar {
-        width: 6px;
+      .theboringenglish-youtube-original {
+        font-family: 'Lora', Georgia, serif !important;
       }
-      #lingoflow-youtube-subtitle-list-container *::-webkit-scrollbar-track {
+      .theboringenglish-youtube-translation {
+        font-family: 'Inter', -apple-system, sans-serif !important;
+      }
+      #theboringenglish-youtube-subtitle-list-container *::-webkit-scrollbar {
+        width: 5px;
+      }
+      #theboringenglish-youtube-subtitle-list-container *::-webkit-scrollbar-track {
         background: transparent;
       }
-      #lingoflow-youtube-subtitle-list-container *::-webkit-scrollbar-thumb {
-        background: var(--lingoflow-drag-handle);
+      #theboringenglish-youtube-subtitle-list-container *::-webkit-scrollbar-thumb {
+        background: var(--theboringenglish-drag-handle);
         border-radius: 10px;
         border: 2px solid transparent;
         background-clip: padding-box;
       }
-      #lingoflow-youtube-subtitle-list-container *::-webkit-scrollbar-thumb:hover {
-        background: var(--lingoflow-text-muted);
+      #theboringenglish-youtube-subtitle-list-container *::-webkit-scrollbar-thumb:hover {
+        background: var(--theboringenglish-text-muted);
         background-clip: padding-box;
       }
     `;
@@ -1197,47 +1366,51 @@ export class YouTubeSubtitleList {
       }
 
       if (this.subtitleListEl && currentIndex !== -1) {
-        const allItems = this.subtitleListEl.querySelectorAll(".lingoflow-youtube-item");
-        allItems.forEach((el) => {
-          el.classList.remove("lingoflow-active");
-          el.style.backgroundColor = "transparent";
-          el.style.borderLeftColor = "transparent";
+        if (currentIndex !== this.lastScrolledIndex) {
+          this.lastScrolledIndex = currentIndex;
 
-          const time = el.querySelector(".lingoflow-time-badge");
-          if (time) time.style.color = s.textTime;
+          const allItems = this.subtitleListEl.querySelectorAll(".theboringenglish-youtube-item");
+          allItems.forEach((el) => {
+            el.classList.remove("theboringenglish-active");
+            el.style.backgroundColor = "transparent";
+            el.style.borderLeftColor = "transparent";
 
-          const original = el.querySelector(".lingoflow-youtube-original");
-          if (original) {
-            original.style.color = s.textEn;
-            original.style.fontWeight = "500";
-          }
+            const time = el.querySelector(".theboringenglish-time-badge");
+            if (time) time.style.color = s.textTime;
 
-          const trans = el.querySelector(".lingoflow-youtube-translation");
-          if (trans) trans.style.color = s.textZh;
-        });
+            const original = el.querySelector(".theboringenglish-youtube-original");
+            if (original) {
+              original.style.color = s.textEn;
+              original.style.fontWeight = "500";
+            }
 
-        const liElement = this.subtitleListEl.querySelector(`#lingoflow-youtube-item-${currentIndex}`);
-        if (liElement) {
-          liElement.classList.add("lingoflow-active");
-          liElement.style.backgroundColor = s.bgActive;
-          liElement.style.borderLeftColor = s.primary;
+            const trans = el.querySelector(".theboringenglish-youtube-translation");
+            if (trans) trans.style.color = s.textZh;
+          });
 
-          const time = liElement.querySelector(".lingoflow-time-badge");
-          if (time) time.style.color = s.textTimeActive;
+          const liElement = this.subtitleListEl.querySelector(`#theboringenglish-youtube-item-${currentIndex}`);
+          if (liElement) {
+            liElement.classList.add("theboringenglish-active");
+            liElement.style.backgroundColor = s.bgActive;
+            liElement.style.borderLeftColor = s.primary;
 
-          const original = liElement.querySelector(".lingoflow-youtube-original");
-          if (original) {
-            original.style.color = s.textEnActive;
-            original.style.fontWeight = "600";
-          }
+            const time = liElement.querySelector(".theboringenglish-time-badge");
+            if (time) time.style.color = s.textTimeActive;
 
-          const trans = liElement.querySelector(".lingoflow-youtube-translation");
-          if (trans) trans.style.color = s.textZhActive;
+            const original = liElement.querySelector(".theboringenglish-youtube-original");
+            if (original) {
+              original.style.color = s.textEnActive;
+              original.style.fontWeight = "600";
+            }
 
-          const scrollContainer = this.subtitleListEl.querySelector("div");
-          if (scrollContainer) {
-            const targetTop = liElement.offsetTop - scrollContainer.clientHeight / 2 + liElement.clientHeight / 2;
-            scrollContainer.scrollTo({ top: targetTop, behavior: "smooth" });
+            const trans = liElement.querySelector(".theboringenglish-youtube-translation");
+            if (trans) trans.style.color = s.textZhActive;
+
+            const scrollContainer = this.subtitleListEl.querySelector("div");
+            if (scrollContainer) {
+              const targetTop = liElement.offsetTop - scrollContainer.clientHeight / 2 + liElement.clientHeight / 2;
+              scrollContainer.scrollTo({ top: targetTop, behavior: "instant" });
+            }
           }
         }
       }
@@ -1249,11 +1422,12 @@ export class YouTubeSubtitleList {
       clearInterval(this.loopAutoScroll);
       this.loopAutoScroll = null;
     }
+    this.lastScrolledIndex = -1;
   }
 
   destroy() {
     this.turnOffAutoSub();
-    document.removeEventListener("lingoflow-add-word", this.handleWordAdded);
+    document.removeEventListener("theboringenglish-add-word", this.handleWordAdded);
     if (this._themeObserver) {
       this._themeObserver.disconnect();
       this._themeObserver = null;

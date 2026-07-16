@@ -40,7 +40,7 @@ import { msAuth, invalidateMsToken } from "../libs/auth";
 import { genDeeplFree } from "./deepl";
 import { genBaidu } from "./baidu";
 import { parseJsonObj, extractJson } from "../libs/utils";
-import { lingoflowLog } from "../libs/log";
+import { theboringenglishLog } from "../libs/log";
 import { fetchData } from "../libs/fetch";
 
 import { parseBilingualVtt } from "../subtitle/vtt";
@@ -84,7 +84,7 @@ const genSystemPrompt = ({
     .replaceAll(INPUT_PLACE_TO, to)
     .replaceAll(INPUT_PLACE_FROM_LANG, fromLang)
     .replaceAll(INPUT_PLACE_TO_LANG, toLang)
-    .replaceAll(INPUT_PLACE_TEXT, texts[0]);
+    .replaceAll(INPUT_PLACE_TEXT, texts?.[0] || "");
 
 const genUserPrompt = ({
   nobatchUserPrompt,
@@ -147,7 +147,7 @@ const parseAIRes = (raw, useBatchFetch = true) => {
       ]);
     }
   } catch (err) {
-    lingoflowLog("parseAIRes", err);
+    theboringenglishLog("parseAIRes", err);
   }
 
   return [];
@@ -166,7 +166,7 @@ const parseSTRes = (raw) => {
       return data;
     }
   } catch (err) {
-    lingoflowLog("parseAIRes: subtitle", err);
+    theboringenglishLog("parseAIRes: subtitle", err);
   }
 
   return [];
@@ -707,18 +707,16 @@ export const genTransReq = async ({ reqHook, ...args }) => {
   }
 
   if (API_SPE_TYPES.ai.has(apiType)) {
-    args.systemPrompt = events
-      ? systemPrompt
-      : genSystemPrompt({
-          systemPrompt: useBatchFetch ? systemPrompt : nobatchPrompt,
-          from,
-          to,
-          fromLang,
-          toLang,
-          texts,
-          docInfo,
-          tone,
-        });
+    args.systemPrompt = genSystemPrompt({
+      systemPrompt: events ? systemPrompt : (useBatchFetch ? systemPrompt : nobatchPrompt),
+      from,
+      to,
+      fromLang,
+      toLang,
+      texts,
+      docInfo,
+      tone,
+    });
     args.userPrompt = events
       ? JSON.stringify(events)
       : genUserPrompt({
@@ -1042,7 +1040,7 @@ export const handleSubtitle = async ({ events, from, to, apiSetting }) => {
     httpTimeout,
   });
   if (!res) {
-    lingoflowLog("subtitle got empty response");
+    theboringenglishLog("subtitle got empty response");
     return [];
   }
 

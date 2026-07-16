@@ -1,4 +1,4 @@
-console.log("LingoFlow: log.js loading...");
+console.log("TheBoringEnglish: log.js loading...");
 
 // 定义日志级别
 export const LogLevel = {
@@ -28,7 +28,7 @@ class Logger {
   constructor(options = {}) {
     this.config = {
       level: options.level || LogLevel.INFO,
-      prefix: options.prefix || "LingoFlow",
+      prefix: options.prefix || "TheBoringEnglish",
     };
   }
 
@@ -160,11 +160,11 @@ class Logger {
 }
 
 export const logger = new Logger();
-export const lingoflowLog = logger.info.bind(logger);
+export const theboringenglishLog = logger.info.bind(logger);
 
 // 用于兜底防止某些环境下的 ReferenceError
 if (typeof window !== "undefined") {
-  window.LingoFlowLogger = logger;
+  window.TheBoringEnglishLogger = logger;
 }
 
 // todo：debug日志埋点

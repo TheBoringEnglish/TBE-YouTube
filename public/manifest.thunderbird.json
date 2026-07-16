@@ -4,7 +4,7 @@
   "description": "__MSG_app_description__",
   "version": "1.0",
   "default_locale": "en",
-  "author": "LingoFlow Team",
+  "author": "TheBoringEnglish Team",
   "browser_specific_settings": {
     "gecko": {
       "id": "yugang2002@gmail.com",
