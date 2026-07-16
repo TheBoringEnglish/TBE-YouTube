@@ -48,8 +48,8 @@ if not token:
 
 # 4. 创建 Release
 tag_name = "v1.0.0"
-release_name = "LingoFlow YouTube v1.0.0 - 稳定发布版"
-body_text = """### 🎬 LingoFlow YouTube 双语字幕专业版扩展 (v1.0.0)
+release_name = "TheBoringEnglish YouTube v1.0.0 - 稳定发布版"
+body_text = """### 🎬 TheBoringEnglish YouTube 双语字幕专业版扩展 (v1.0.0)
 
 本安装包是已经编译打包好的 Chrome 插件。
 
@@ -61,7 +61,7 @@ body_text = """### 🎬 LingoFlow YouTube 双语字幕专业版扩展 (v1.0.0)
 5. 点击左上角的 **“加载已解压的扩展程序”** 按钮，选择刚才解压出来的文件夹即可完成安装！
 
 ---
-由 **LingoFlow Team** 用 ❤️ 构建"""
+由 **TheBoringEnglish Team** 用 ❤️ 构建"""
 
 print(f"🚀 正在为 {owner}/{repo} 创建 GitHub Release {tag_name}...")
 

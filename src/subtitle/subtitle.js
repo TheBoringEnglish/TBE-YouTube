@@ -12,14 +12,14 @@ export function runSubtitle({ href, setting }) {
   try {
     const subtitleSetting = setting.subtitleSetting || DEFAULT_SUBTITLE_SETTING;
     if (!subtitleSetting.enabled) {
-      console.log("[LingoFlow] Subtitle is disabled in settings.");
+      console.log("[TheBoringEnglish] Subtitle is disabled in settings.");
       return;
     }
 
     const provider = providers.find((item) => {
       const match = isMatch(href, item.pattern);
       if (match) {
-        console.log(`[LingoFlow] Matched provider for pattern: ${item.pattern}`);
+        console.log(`[TheBoringEnglish] Matched provider for pattern: ${item.pattern}`);
       }
       return match;
     });
@@ -33,7 +33,7 @@ export function runSubtitle({ href, setting }) {
         (api) => api.apiSlug === subtitleSetting.segSlug
       );
       
-      console.log(`[LingoFlow] Starting provider for: ${href}`);
+      console.log(`[TheBoringEnglish] Starting provider for: ${href}`);
       provider.start({
         ...subtitleSetting,
         apiSetting,
@@ -41,7 +41,7 @@ export function runSubtitle({ href, setting }) {
         uiLang: setting.uiLang,
       });
     } else {
-      console.log(`[LingoFlow] No matching provider found for: ${href}`);
+      console.log(`[TheBoringEnglish] No matching provider found for: ${href}`);
     }
   } catch (err) {
     logger.error("start subtitle provider", err);

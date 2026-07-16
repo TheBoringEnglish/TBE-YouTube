@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import "./popup.css";
-import { loginToWeb, fetchUserInfoWithToken } from "./apis/lingoflow";
+import { fetchUserInfoWithToken } from "./apis/theboringenglish";
 import { 
   getSettingWithDefault, 
   putSetting 
@@ -12,13 +12,9 @@ import {
   OPT_TRANS_MICROSOFT,
   OPT_LANGS_TO,
   OPT_ALL_TRANS_TYPES,
-  OPT_TRANS_BUILTINAI,
 } from "./config/api";
 import { newI18n } from "./config/i18n";
 
-/**
- * 获取浏览器语言并映射到支持的 I18N 语言代码 (zh, en, zh_TW, ja, ko)
- */
 const getBrowserLangForI18n = () => {
   try {
     const lang = navigator.language || navigator.languages?.[0] || "zh";
@@ -26,15 +22,22 @@ const getBrowserLangForI18n = () => {
     if (lang.startsWith("zh")) return "zh";
     if (lang.startsWith("ja")) return "ja";
     if (lang.startsWith("ko")) return "ko";
+    if (lang.startsWith("fr")) return "fr";
+    if (lang.startsWith("de")) return "de";
+    if (lang.startsWith("es")) return "es";
+    if (lang.startsWith("pt")) return "pt";
+    if (lang.startsWith("it")) return "it";
+    if (lang.startsWith("ru")) return "ru";
+    if (lang.startsWith("vi")) return "vi";
     return "en";
   } catch {
-    return "zh";
+    return "en";
   }
 };
 
 const getBrowserLang = () => {
   try {
-    const lang = navigator.language || navigator.languages?.[0] || "zh-CN";
+    const lang = navigator.language || navigator.languages?.[0] || "en";
     const exactMatch = OPT_LANGS_TO.find(([code]) => code === lang);
     if (exactMatch) return exactMatch[0];
     const prefixMatch = OPT_LANGS_TO.find(([code]) => code.startsWith(lang.slice(0, 2)));
@@ -45,56 +48,41 @@ const getBrowserLang = () => {
   }
 };
 
-// 翻译引擎分类
 const TRANS_CATEGORIES = {
-  free: {
-    label: "🆓 免费引擎",
-    types: new Set(["Microsoft", "Google"])
-  }
+  free: { types: new Set(["Microsoft", "Google"]) },
+  ai: { types: new Set(["OpenAI", "Gemini"]) },
 };
 
-const CATEGORY_LABELS = {
-  free: "🆓 免费引擎"
-};
+const needsApiKey = (apiType) => new Set(["OpenAI", "Gemini"]).has(apiType);
+const needsModel = (apiType) => apiType === "OpenAI" || apiType === "Gemini";
+const needsUrl = (apiType) => new Set(["OpenAI", "Gemini"]).has(apiType);
 
-// 判断引擎是否需要 API Key
-const needsApiKey = (apiType) => {
-  const keyRequired = new Set([
-    "DeepL", "NiuTrans", "AzureAI", "CloudflareAI",
-    "OpenAI", "Gemini", "Gemini2", "Claude", "Ollama", "OpenRouter", "Custom"
-  ]);
-  return keyRequired.has(apiType);
-};
-
-// 判断引擎是否需要 Model
-const needsModel = (apiType) => {
-  return API_SPE_TYPES.ai.has(apiType);
-};
-
-// 判断引擎是否需要自定义 URL
-const needsUrl = (apiType) => {
-  const urlCustomizable = new Set([
-    "DeepL", "DeepLX", "NiuTrans", "AzureAI", "CloudflareAI",
-    "OpenAI", "Gemini", "Gemini2", "Claude", "Ollama", "OpenRouter", "Custom"
-  ]);
-  return urlCustomizable.has(apiType);
+const LANG_DISPLAY = {
+  "zh-CN": { zh: "简体中文", zh_TW: "簡體中文", en: "Simplified Chinese", ja: "簡体字中国語", ko: "중국어 간체", fr: "Chinois simplifié", de: "Vereinfachtes Chinesisch", es: "Chino simplificado", pt: "Chinês simplificado", it: "Cinese semplificato", ru: "Упрощённый китайский", vi: "Tiếng Trung giản thể" },
+  "zh-TW": { zh: "繁体中文", zh_TW: "繁體中文", en: "Traditional Chinese", ja: "繁体字中国語", ko: "중국어 번체", fr: "Chinois traditionnel", de: "Traditionelles Chinesisch", es: "Chino tradicional", pt: "Chinês tradicional", it: "Cinese tradizionale", ru: "Традиционный китайский", vi: "Tiếng Trung phồn thể" },
+  "en": { zh: "英语", zh_TW: "英語", en: "English", ja: "英語", ko: "영어", fr: "Anglais", de: "Englisch", es: "Inglés", pt: "Inglês", it: "Inglese", ru: "Английский", vi: "Tiếng Anh" },
+  "ja": { zh: "日语", zh_TW: "日語", en: "Japanese", ja: "日本語", ko: "일본어", fr: "Japonais", de: "Japanisch", es: "Japonés", pt: "Japonês", it: "Giapponese", ru: "Японский", vi: "Tiếng Nhật" },
+  "ko": { zh: "韩语", zh_TW: "韓語", en: "Korean", ja: "韓国語", ko: "한국어", fr: "Coréen", de: "Koreanisch", es: "Coreano", pt: "Coreano", it: "Coreano", ru: "Корейский", vi: "Tiếng Hàn" },
+  "fr": { zh: "法语", zh_TW: "法語", en: "French", ja: "フランス語", ko: "프랑스어", fr: "Coréen", de: "Französisch", es: "Francés", pt: "Francês", it: "Francese", ru: "Французский", vi: "Tiếng Pháp" },
+  "de": { zh: "德语", zh_TW: "德語", en: "German", ja: "ドイツ語", ko: "독일어", fr: "Allemand", de: "Deutsch", es: "Alemán", pt: "Alemão", it: "Tedesco", ru: "Немецкий", vi: "Tiếng Đức" },
+  "es": { zh: "西班牙语", zh_TW: "西班牙語", en: "Spanish", ja: "スペイン語", ko: "스페인어", fr: "Espagnol", de: "Spanisch", es: "Español", pt: "Espanhol", it: "Spagnolo", ru: "Испанский", vi: "Tiếng Tây Ban Nha" },
+  "pt": { zh: "葡萄牙语", zh_TW: "葡萄牙語", en: "Portuguese", ja: "ポルトガル語", ko: "포르투갈어", fr: "Portugais", de: "Portugiesisch", es: "Portugués", pt: "Português", it: "Portoghese", ru: "Português", vi: "Tiếng Bồ Đào Nha" },
+  "it": { zh: "意大利语", zh_TW: "義大利語", en: "Italian", ja: "イタリア語", ko: "이탈리아어", fr: "Italien", de: "Italienisch", es: "Italiano", pt: "Italiano", it: "Italiano", ru: "Итальянский", vi: "Tiếng Ý" },
+  "ru": { zh: "俄语", zh_TW: "俄語", en: "Russian", ja: "ロシア語", ko: "러시아어", fr: "Russe", de: "Russisch", es: "Ruso", pt: "Russo", it: "Russo", ru: "Русский", vi: "Tiếng Nga" },
+  "vi": { zh: "越南语", zh_TW: "越南語", en: "Vietnamese", ja: "ベトナム語", ko: "베트남어", fr: "Vietnamien", de: "Vietnamesisch", es: "Vietnamita", pt: "Vietnamita", it: "Vietnamita", ru: "Вьетнамский", vi: "Tiếng Việt" },
 };
 
 function StatusDot({ status }) {
-  const colors = {
-    ok: "#10b981",
-    warn: "#f59e0b",
-    error: "#ef4444",
-  };
+  const colors = { ok: "#c27c2a", warn: "#d97706", error: "#dc2626" };
   return (
     <span style={{
       display: "inline-block",
-      width: 8,
-      height: 8,
+      width: 8, height: 8,
       borderRadius: "50%",
       background: colors[status] || colors.ok,
       marginRight: 6,
-      boxShadow: `0 0 6px ${colors[status] || colors.ok}`,
+      boxShadow: `0 0 6px ${colors[status] || colors.ok}88`,
+      flexShrink: 0,
     }} />
   );
 }
@@ -103,67 +91,64 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [apis, setApis] = useState([]);
   const [selectedSlug, setSelectedSlug] = useState(OPT_TRANS_MICROSOFT);
-  const [segSlug, setSegSlug] = useState("-");
-  const [isAISegment, setIsAISegment] = useState(false);
   const [targetLang, setTargetLang] = useState(getBrowserLang());
   const [isSaved, setIsSaved] = useState(false);
-  const [activeSection, setActiveSection] = useState("translation"); // translation | ai | about | sync
+  const [activeSection, setActiveSection] = useState("translation");
   const [subEnabled, setSubEnabled] = useState(true);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [uiLang, setUiLang] = useState(getBrowserLangForI18n());
 
-  // 主站联动配置
+  // 已绑定的主站配置
   const [syncConfig, setSyncConfig] = useState({
     serverUrl: "https://www.theboringenglish.com",
     username: "",
-    password: "",
     token: "",
-    isConnected: false
+    isConnected: false,
   });
+
+  // 检测相关状态
+  const [detectedSession, setDetectedSession] = useState(null);
+  const [detecting, setDetecting] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ type: "", message: "" });
   const [syncLoading, setSyncLoading] = useState(false);
+
+  // 输入框状态
   const [tokenInput, setTokenInput] = useState("");
+  const [serverUrlInput, setServerUrlInput] = useState("https://www.theboringenglish.com");
 
   const i18n = useMemo(() => newI18n(uiLang), [uiLang]);
 
-  // 获取 AI 列表
-  const aiList = useMemo(() => Array.from(API_SPE_TYPES.ai), []);
-
-  // 所有可用翻译引擎
-  const allTransTypes = useMemo(() => {
-    const allowed = new Set(["Microsoft", "Google"]);
-    return OPT_ALL_TRANS_TYPES.filter(t => allowed.has(t));
-  }, []);
+  const LANG_MAP = {
+    "zh-CN": "zh", "zh-TW": "zh_TW", "en": "en", "ja": "ja",
+    "ko": "ko", "fr": "fr", "de": "de", "es": "es",
+    "pt": "pt", "it": "it", "ru": "ru", "vi": "vi",
+  };
 
   useEffect(() => {
     async function init() {
       try {
         const setting = await getSettingWithDefault();
-        const allApis = setting.transApis || DEFAULT_API_LIST;
+        const allApis = (setting.transApis || DEFAULT_API_LIST).map(api => {
+          if (api.apiSlug === "Gemini" && api.model === "gemini-2.5-flash") {
+            return { ...api, model: "gemini-3.1-flash-lite" };
+          }
+          return api;
+        });
         const subtitleSet = setting.subtitleSetting || {};
-        
+
         setApis(allApis);
         setSelectedSlug(subtitleSet.apiSlug || OPT_TRANS_MICROSOFT);
-        setSegSlug(subtitleSet.segSlug || "-");
-        setIsAISegment(subtitleSet.isAISegment || false);
         setTargetLang(subtitleSet.toLang || getBrowserLang());
         setSubEnabled(subtitleSet.enabled !== false);
-        if (setting.uiLang) {
-          setUiLang(setting.uiLang);
-        }
 
-        // 读取主站联动配置
+        if (setting.uiLang) setUiLang(setting.uiLang);
+
         if (typeof chrome !== "undefined" && chrome.storage) {
-          chrome.storage.local.get(["lingoflow_sync_config"], (result) => {
-            if (result.lingoflow_sync_config) {
-              setSyncConfig(prev => ({
-                ...prev,
-                ...result.lingoflow_sync_config,
-                password: "" // 不回显密码以策安全
-              }));
-              if (result.lingoflow_sync_config.token) {
-                setTokenInput(result.lingoflow_sync_config.token);
-              }
+          chrome.storage.local.get(["theboringenglish_sync_config"], (result) => {
+            if (result.theboringenglish_sync_config) {
+              const cfg = result.theboringenglish_sync_config;
+              setSyncConfig(prev => ({ ...prev, ...cfg }));
+              setServerUrlInput(cfg.serverUrl || "https://www.theboringenglish.com");
+              if (cfg.token) setTokenInput(cfg.token);
             }
           });
         }
@@ -176,65 +161,155 @@ function App() {
     init();
   }, []);
 
-  const handleConnectSync = async () => {
-    if (!syncConfig.serverUrl || !tokenInput) {
-      setSyncStatus({ type: "error", message: "请完整填写服务器地址及 API Token" });
-      return;
-    }
-    setSyncLoading(true);
-    setSyncStatus({ type: "info", message: "正在验证 API Token..." });
+  // 执行一次性检测
+  const performLoginDetection = useCallback(async () => {
+    if (typeof chrome === "undefined" || !chrome.tabs || !chrome.scripting) return;
+    setDetecting(true);
+    setDetectedSession(null);
     try {
-      const result = await fetchUserInfoWithToken(syncConfig.serverUrl, tokenInput.trim());
-      const username = result.username || result.email || "TheBoringEnglish 用户";
+      const tabs = await new Promise((resolve) => {
+        chrome.tabs.query({ url: ["*://*.theboringenglish.com/*", "*://localhost/*"] }, (res) => {
+          if (chrome.runtime.lastError) {
+            console.log("tabs.query status:", chrome.runtime.lastError.message);
+            resolve([]);
+          } else {
+            resolve(res || []);
+          }
+        });
+      });
+
+      if (!tabs || tabs.length === 0) {
+        setDetecting(false);
+        return;
+      }
+
+      let matched = null;
+      for (const tab of tabs) {
+        const results = await new Promise((resolve) => {
+          chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => ({
+              token: localStorage.getItem("lingoflow_token"),
+              username: localStorage.getItem("lingoflow_username"),
+              serverUrl: window.location.origin,
+            }),
+          }, (res) => {
+            if (chrome.runtime.lastError) {
+              console.log("executeScript status:", chrome.runtime.lastError.message);
+              resolve(null);
+            } else {
+              resolve(res);
+            }
+          });
+        });
+
+        const data = results?.[0]?.result;
+        if (data?.token) {
+          matched = {
+            token: data.token,
+            username: data.username || "TheBoringEnglish User",
+            serverUrl: data.serverUrl || "https://www.theboringenglish.com"
+          };
+          break;
+        }
+      }
+
+      if (matched) {
+        setDetectedSession(matched);
+      }
+    } catch (e) {
+      console.error("Login detection error:", e);
+    } finally {
+      setDetecting(false);
+    }
+  }, []);
+
+  // 进入 Sync 且未绑定时触发检测
+  useEffect(() => {
+    if (activeSection === "sync" && !syncConfig.isConnected) {
+      performLoginDetection();
+    }
+  }, [activeSection, syncConfig.isConnected, performLoginDetection]);
+
+  // 点击自动关联一键连接
+  const handleAutoConnectClick = async () => {
+    if (!detectedSession) return;
+    setSyncLoading(true);
+    setSyncStatus({ type: "info", message: i18n("verifying") });
+    try {
+      const { serverUrl, token } = detectedSession;
+      const result = await fetchUserInfoWithToken(serverUrl, token.trim());
+      const username = result.username || result.email || detectedSession.username;
+      
       const newConfig = {
-        serverUrl: syncConfig.serverUrl.replace(/\/$/, ""),
-        username: username,
-        token: tokenInput.trim(),
+        serverUrl,
+        username,
+        token: token.trim(),
         isConnected: true
       };
-      
+
       if (typeof chrome !== "undefined" && chrome.storage) {
         await new Promise((resolve) => {
-          chrome.storage.local.set({ "lingoflow_sync_config": newConfig }, resolve);
+          chrome.storage.local.set({ "theboringenglish_sync_config": newConfig }, resolve);
         });
       }
-      
-      setSyncConfig(prev => ({
-        ...prev,
-        ...newConfig,
-        password: ""
-      }));
-      setSyncStatus({ type: "success", message: `成功连接！已通过 Token 登录为 ${username}` });
+
+      setSyncConfig(newConfig);
+      setSyncStatus({ type: "success", message: i18n("connect_success") + username });
     } catch (err) {
-      setSyncStatus({ type: "error", message: err.message || "Token 验证失败，请检查密钥是否正确或已过期" });
+      setSyncStatus({ type: "error", message: err.message || i18n("connect_fail") });
     } finally {
       setSyncLoading(false);
     }
   };
 
-  const handleDisconnectSync = async () => {
-    const clearedConfig = {
-      serverUrl: syncConfig.serverUrl,
-      username: "",
-      password: "",
-      token: "",
-      isConnected: false
-    };
-    
+  const handleManualConnect = async () => {
+    if (!serverUrlInput || !tokenInput) {
+      setSyncStatus({ type: "error", message: i18n("fill_all_fields") });
+      return;
+    }
+    setSyncLoading(true);
+    setSyncStatus({ type: "info", message: i18n("verifying") });
+    try {
+      const serverUrl = serverUrlInput.replace(/\/$/, "");
+      const result = await fetchUserInfoWithToken(serverUrl, tokenInput.trim());
+      const username = result.username || result.email || "TheBoringEnglish User";
+      const newConfig = { serverUrl, username, token: tokenInput.trim(), isConnected: true };
+
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ "theboringenglish_sync_config": newConfig }, resolve);
+        });
+      }
+
+      setSyncConfig(newConfig);
+      setSyncStatus({ type: "success", message: i18n("connect_success") + username });
+    } catch (err) {
+      setSyncStatus({ type: "error", message: err.message || i18n("connect_fail") });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    const cleared = { serverUrl: "https://www.theboringenglish.com", username: "", token: "", isConnected: false };
     if (typeof chrome !== "undefined" && chrome.storage) {
       await new Promise((resolve) => {
-        chrome.storage.local.remove(["lingoflow_sync_config"], resolve);
+        chrome.storage.local.remove(["theboringenglish_sync_config"], resolve);
       });
     }
-    
-    setSyncConfig(clearedConfig);
+    setSyncConfig(cleared);
+    setTokenInput("");
+    setDetectedSession(null);
     setSyncStatus({ type: "", message: "" });
+    // 解绑后立即执行一次重新检测
+    setTimeout(() => {
+      performLoginDetection();
+    }, 100);
   };
 
   const updateApiField = (slug, key, value) => {
-    setApis(prev => prev.map(a => 
-      a.apiSlug === slug ? { ...a, [key]: value } : a
-    ));
+    setApis(prev => prev.map(a => a.apiSlug === slug ? { ...a, [key]: value } : a));
   };
 
   const getApiBySlug = (slug) => apis.find(a => a.apiSlug === slug);
@@ -247,87 +322,124 @@ function App() {
         ...setting.subtitleSetting,
         enabled: subEnabled,
         apiSlug: selectedSlug,
-        segSlug: isAI ? selectedSlug : segSlug,
-        isAISegment: isAI ? true : isAISegment,
-        toLang: targetLang
+        segSlug: isAI ? selectedSlug : "-",
+        isAISegment: isAI,
+        toLang: targetLang,
       };
 
-      await putSetting({
-        transApis: apis,
-        subtitleSetting: newSubtitleSetting
-      });
+      const mappedUiLang = LANG_MAP[targetLang] || "en";
 
+      await putSetting({ transApis: apis, subtitleSetting: newSubtitleSetting, uiLang: mappedUiLang });
       setIsSaved(true);
-      
-      // 刷新当前活动标签页
+
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (chrome.runtime.lastError) {
+          console.log("tabs.query status:", chrome.runtime.lastError.message);
+          return;
+        }
         if (tabs[0]?.id) {
-          chrome.tabs.reload(tabs[0].id);
+          chrome.tabs.reload(tabs[0].id, {}, () => {
+            if (chrome.runtime.lastError) {
+              console.log("tabs.reload status:", chrome.runtime.lastError.message);
+            }
+          });
         }
       });
 
       setTimeout(() => setIsSaved(false), 2000);
     } catch (err) {
-      console.error("Failed to save settings:", err);
+      console.error("Failed to save:", err);
     }
   };
 
   if (loading) {
     return (
-      <div className="glow-container" style={{height: 500, display: "flex", alignItems: "center", justifyContent: "center"}}>
+      <div className="glow-container" style={{ height: 500, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div className="loading-spinner" />
       </div>
     );
   }
 
   const selectedApi = getApiBySlug(selectedSlug);
-  const segApi = getApiBySlug(segSlug);
+
+  const catLabel = {
+    free: uiLang === "ja" ? "🆓 無料翻訳エンジン"
+        : uiLang === "ko" ? "🆓 무료 번역 엔진"
+        : uiLang === "zh" || uiLang === "zh_TW" ? "🆓 免费翻译引擎"
+        : "🆓 Free Translation",
+    ai: uiLang === "ja" ? "🤖 AI 大規模モデル"
+      : uiLang === "ko" ? "🤖 AI 대형 모델"
+      : uiLang === "zh" || uiLang === "zh_TW" ? "🤖 AI 大模型"
+      : "🤖 AI Models",
+  };
 
   return (
     <div className="glow-container">
+      {/* Header */}
       <header className="header animate">
         <h1 className="logo-text">TheBoringEnglish</h1>
-        <p className="subtitle">{i18n("app_subtitle")}</p>
+        <p className="subtitle">{i18n("popup_subtitle")}</p>
       </header>
 
       {/* Tab Navigation */}
       <nav className="glass-nav">
-        <button 
+        <button
           className={`nav-item ${activeSection === "translation" ? "active" : ""}`}
           onClick={() => setActiveSection("translation")}
         >
           <span className="icon">🌐</span> {i18n("tab_translate")}
         </button>
-        <button 
+        <button
           className={`nav-item ${activeSection === "sync" ? "active" : ""}`}
           onClick={() => setActiveSection("sync")}
         >
-          <span className="icon">🔄</span> 联动
+          <span className="icon">{syncConfig.isConnected ? "✅" : "🔗"}</span> {i18n("tab_sync")}
         </button>
-        <button 
+        <button
           className={`nav-item ${activeSection === "about" ? "active" : ""}`}
           onClick={() => setActiveSection("about")}
         >
-          <span className="icon">ℹ️</span> {i18n("tab_about")}
+          <span className="icon">📖</span> {i18n("tab_about")}
         </button>
       </nav>
 
-      {/* Translation Settings */}
+      {/* ===== Translation Settings ===== */}
       {activeSection === "translation" && (
         <section className="config-card animate">
-          <div className="section-title">{i18n("translate_service")}</div>
-          
           <div className="form-group">
-            <select 
-              className="input-field" 
-              value={selectedSlug} 
+            <label className="form-label">{i18n("target_lang")}</label>
+            <select
+              className="input-field"
+              value={targetLang}
+              onChange={(e) => {
+                const val = e.target.value;
+                setTargetLang(val);
+                const mapped = LANG_MAP[val] || "en";
+                setUiLang(mapped);
+              }}
+            >
+              {OPT_LANGS_TO.map(([code, name]) => (
+                <option key={code} value={code}>
+                  {LANG_DISPLAY[code]?.[uiLang] || name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="divider" />
+
+          <div className="form-group">
+            <label className="form-label">{i18n("translate_service")}</label>
+            <select
+              className="input-field"
+              value={selectedSlug}
               onChange={(e) => setSelectedSlug(e.target.value)}
             >
               {Object.entries(TRANS_CATEGORIES).map(([key, cat]) => {
                 const items = apis.filter(a => cat.types.has(a.apiType));
                 if (items.length === 0) return null;
                 return (
-                  <optgroup key={key} label={CATEGORY_LABELS[key]}>
+                  <optgroup key={key} label={catLabel[key]}>
                     {items.map(api => (
                       <option key={api.apiSlug} value={api.apiSlug}>
                         {api.name || api.apiType}
@@ -339,37 +451,37 @@ function App() {
             </select>
           </div>
 
-          {/* 当前引擎状态 */}
+          {/* Status badge */}
           <div className="engine-status animate-in">
             <StatusDot status={needsApiKey(selectedSlug) && !selectedApi?.key ? "warn" : "ok"} />
             <span className="status-text">
-              {needsApiKey(selectedSlug) && !selectedApi?.key 
-                ? `${selectedSlug} 需要 API Key 才能使用`
-                : `${selectedSlug} 已就绪`}
+              {needsApiKey(selectedSlug) && !selectedApi?.key
+                ? `${selectedSlug} — ${i18n("api_key_required")}`
+                : `${selectedSlug} — ${i18n("service_ready")}`}
             </span>
           </div>
 
-          {/* API Key / Model / URL 配置 */}
+          {/* API Key / Model / Endpoint */}
           {needsApiKey(selectedSlug) && selectedApi && (
             <div className="credentials-card animate-in">
               <div className="form-group">
                 <label className="form-label">API Key</label>
-                <input 
-                  type="password" 
-                  className="input-field" 
-                  placeholder={`输入 ${selectedSlug} API Key`}
+                <input
+                  type="password"
+                  className="input-field"
+                  placeholder={`${selectedSlug} API Key`}
                   value={selectedApi.key || ""}
                   onChange={(e) => updateApiField(selectedSlug, "key", e.target.value)}
                 />
               </div>
-              
+
               {needsModel(selectedSlug) && (
                 <div className="form-group">
-                  <label className="form-label">模型 (Model)</label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    placeholder={`例如: ${selectedApi.model || "gpt-4o"}`}
+                  <label className="form-label">{i18n("model_label")}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder={selectedApi.model || "e.g. gemini-3.1-flash-lite"}
                     value={selectedApi.model || ""}
                     onChange={(e) => updateApiField(selectedSlug, "model", e.target.value)}
                   />
@@ -379,13 +491,13 @@ function App() {
               {needsUrl(selectedSlug) && (
                 <div className="form-group">
                   <label className="form-label">
-                    自定义 API 地址
-                    <span className="form-hint"> (可选)</span>
+                    {i18n("endpoint_label")}
+                    <span className="form-hint"> ({i18n("endpoint_optional")})</span>
                   </label>
-                  <input 
-                    type="text" 
-                    className="input-field" 
-                    placeholder={selectedApi.url || "使用默认地址"}
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder={selectedApi.url || "Default endpoint"}
                     value={selectedApi.url || ""}
                     onChange={(e) => updateApiField(selectedSlug, "url", e.target.value)}
                   />
@@ -394,23 +506,8 @@ function App() {
             </div>
           )}
 
-          <div className="divider" />
-
-          <div className="section-title">{i18n("target_lang")}</div>
-          <div className="form-group">
-            <select 
-              className="input-field" 
-              value={targetLang} 
-              onChange={(e) => setTargetLang(e.target.value)}
-            >
-              {OPT_LANGS_TO.map(([code, name]) => (
-                <option key={code} value={code}>{name}</option>
-              ))}
-            </select>
-          </div>
-
-          <button 
-            className={`save-btn ${isSaved ? "success" : ""}`} 
+          <button
+            className={`save-btn ${isSaved ? "success" : ""}`}
             onClick={saveSettings}
             disabled={isSaved}
           >
@@ -419,133 +516,202 @@ function App() {
         </section>
       )}
 
-
-
-      {/* Sync Section */}
+      {/* ===== Sync / Data Linking ===== */}
       {activeSection === "sync" && (
         <section className="config-card animate">
-          <div className="section-title">TheBoringEnglish 主站数据联动</div>
-          <p className="card-desc" style={{ fontSize: "12px", color: "var(--lingoflow-text-secondary, #888)", marginBottom: "15px", lineHeight: "1.4" }}>
-            启用联动后，你在 YouTube 查词的记录将**自动同步到 TheBoringEnglish 单词本**，并支持**一键将视频字幕导出为精读文章**。
-          </p>
+          <p className="card-desc">{i18n("sync_desc")}</p>
 
           {syncConfig.isConnected ? (
-            <div className="credentials-card animate-in" style={{ border: "1px solid rgba(16, 185, 129, 0.3)", background: "rgba(16, 185, 129, 0.05)" }}>
-              <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
+            // ─── Connected State ───
+            <div className="credentials-card animate-in connected-card">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
                 <StatusDot status="ok" />
-                <span style={{ fontWeight: "600", color: "#10b981" }}>已成功连接到 TheBoringEnglish 主站</span>
+                <span style={{ fontWeight: "700", fontSize: "13px", color: "var(--warm-success)" }}>
+                  {i18n("connected_to")}
+                </span>
               </div>
-              <div style={{ fontSize: "13px", color: "var(--lingoflow-text-en, #eee)", lineHeight: "1.8" }}>
-                <div><strong>服务器地址：</strong>{syncConfig.serverUrl}</div>
-                <div><strong>当前用户：</strong>{syncConfig.username}</div>
-              </div>
-              <button 
-                className="save-btn" 
-                style={{ marginTop: "15px", background: "#ef4444", color: "#fff" }}
-                onClick={handleDisconnectSync}
-              >
-                断开连接
-              </button>
-            </div>
-          ) : (
-            <div className="credentials-card animate-in">
-              <div className="form-group">
-                <label className="form-label">TheBoringEnglish 服务器地址</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="例如: https://www.theboringenglish.com"
-                  value={syncConfig.serverUrl}
-                  onChange={(e) => setSyncConfig(prev => ({ ...prev, serverUrl: e.target.value }))}
-                />
-              </div>
-
-              {/* API Token 绑定输入项 */}
-              <div className="form-group" style={{ marginTop: "15px" }}>
-                <label className="form-label">API Token (绑定密钥)</label>
-                <input 
-                  type="password" 
-                  className="input-field" 
-                  placeholder="请在此粘贴主站常规设置中的 API Token"
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                />
-                <div style={{ fontSize: "10px", color: "var(--lingoflow-text-secondary, #888)", marginTop: "6px", lineHeight: "1.4" }}>
-                  提示：请登录 TheBoringEnglish 主站，在“个人设置 (常规)”最下方复制您的绑定密钥并粘贴至此以完成联动绑定。
+              <div className="connected-info">
+                <div className="info-row">
+                  <span className="info-key">{i18n("server_label")}</span>
+                  <span className="info-val">{syncConfig.serverUrl}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-key">{i18n("user_label")}</span>
+                  <span className="info-val" style={{ color: "var(--warm-gold)", fontWeight: "700" }}>
+                    {syncConfig.username}
+                  </span>
                 </div>
               </div>
-
               {syncStatus.message && (
-                <div style={{
-                  fontSize: "12px",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  marginTop: "10px",
-                  background: syncStatus.type === "error" ? "rgba(239, 68, 68, 0.15)" : syncStatus.type === "success" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
-                  color: syncStatus.type === "error" ? "#f87171" : syncStatus.type === "success" ? "#34d399" : "#60a5fa",
-                  border: `1px solid ${syncStatus.type === "error" ? "rgba(239, 68, 68, 0.2)" : syncStatus.type === "success" ? "rgba(16, 185, 129, 0.2)" : "rgba(59, 130, 246, 0.2)"}`
-                }}>
+                <div className="status-msg status-success" style={{ marginTop: 4 }}>
                   {syncStatus.message}
                 </div>
               )}
-
-              <button 
-                className="save-btn" 
-                style={{ marginTop: "15px" }}
-                onClick={handleConnectSync}
-                disabled={syncLoading}
+              <button
+                className="disconnect-btn"
+                onClick={handleDisconnect}
               >
-                {syncLoading ? "正在连接..." : "连接并保存"}
+                {i18n("disconnect")}
               </button>
+            </div>
+          ) : (
+            // ─── Not Connected State ───
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              
+              {/* Method 1: Auto-Detect */}
+              <div className="credentials-card animate-in">
+                <div className="form-label" style={{ marginBottom: 4, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>{i18n("auth_auto")}</span>
+                  {detecting && <span className="mini-spinner" />}
+                </div>
+                
+                {detecting ? (
+                  <div className="status-msg status-info">
+                    {i18n("auto_detecting")}
+                  </div>
+                ) : detectedSession ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div className="status-msg status-success">
+                      <div>
+                        {i18n("auth_auto_desc_ok")}
+                        <strong style={{ color: "#d97706", marginLeft: 4 }}>{detectedSession.username}</strong>
+                      </div>
+                    </div>
+                    <button 
+                      className="save-btn" 
+                      onClick={handleAutoConnectClick}
+                      disabled={syncLoading}
+                    >
+                      {syncLoading ? i18n("verifying") : i18n("auth_auto_btn_ok")}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div className="status-msg status-info" style={{ fontSize: "11px" }}>
+                      {i18n("auth_auto_desc_empty")}
+                    </div>
+                    <button 
+                      className="disconnect-btn" 
+                      style={{ color: "var(--text-secondary)", background: "var(--input-bg)", borderColor: "var(--glass-border)", marginTop: 0 }}
+                      onClick={performLoginDetection}
+                    >
+                      🔄 {i18n("auth_auto_btn_retry")}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Method 2: Manual API Token */}
+              <div className="credentials-card animate-in">
+                <div className="form-label" style={{ marginBottom: 4 }}>
+                  {i18n("auth_manual")}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: "10.5px" }}>{i18n("server_url_label")}</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="https://www.theboringenglish.com"
+                    value={serverUrlInput}
+                    onChange={(e) => setServerUrlInput(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: "10.5px" }}>{i18n("api_token_label")}</label>
+                  <input
+                    type="password"
+                    className="input-field"
+                    placeholder={i18n("api_token_hint")}
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                  />
+                </div>
+
+                {syncStatus.message && syncStatus.type !== "success" && (
+                  <div className={`status-msg ${
+                    syncStatus.type === "error" ? "status-error" : "status-info"
+                  }`} style={{ marginTop: 4 }}>
+                    {syncStatus.message}
+                  </div>
+                )}
+
+                <button
+                  className="save-btn"
+                  onClick={handleManualConnect}
+                  disabled={syncLoading}
+                  style={{ background: "var(--input-bg)", color: "var(--text-primary)", border: "1px solid var(--glass-border)", boxShadow: "none" }}
+                >
+                  {syncLoading ? i18n("verifying") : i18n("connect_btn")}
+                </button>
+              </div>
+
             </div>
           )}
         </section>
       )}
 
-      {/* About Section */}
+      {/* ===== About ===== */}
       {activeSection === "about" && (
         <section className="config-card animate">
-          <div className="section-title">{i18n("about_lingoflow")}</div>
           <div className="about-content">
             <div className="about-item">
-              <span className="about-label">{i18n("version")}</span>
-              <span className="about-value">v1.0</span>
+              <span className="about-label">{i18n("version_label")}</span>
+              <span className="about-value">v1.0.0</span>
             </div>
             <div className="about-item">
-              <span className="about-label">{i18n("author")}</span>
-              <span className="about-value">Norman</span>
-            </div>
-            <div className="about-item">
-              <span className="about-label">{i18n("website")}</span>
-              <a 
-                href="https://github.com/TheBoringEnglish/TBE-YouTube" 
-                target="_blank" 
-                className="about-value"
-                style={{ color: "var(--primary-color, #4f8ef7)", textDecoration: "none", fontWeight: "600" }}
+              <span className="about-label">{i18n("website_label")}</span>
+              <a
+                href="https://theboringenglish.com"
+                target="_blank"
+                className="about-value website-link"
               >
-                github.com/TheBoringEnglish/TBE-YouTube
+                theboringenglish.com ↗
               </a>
             </div>
             <div className="about-item">
-              <span className="about-label">{i18n("license")}</span>
-              <span className="about-value">GPL-3.0</span>
+              <span className="about-label">Telegram Channel</span>
+              <a
+                href="https://t.me/theboringenglish"
+                target="_blank"
+                className="about-value website-link"
+              >
+                t.me/theboringenglish ↗
+              </a>
+            </div>
+            <div className="about-item">
+              <span className="about-label">X (Twitter)</span>
+              <a
+                href="https://x.com/TBoringEnglish"
+                target="_blank"
+                className="about-value website-link"
+              >
+                @TBoringEnglish ↗
+              </a>
+            </div>
+            <div className="about-item">
+              <span className="about-label">GitHub</span>
+              <a
+                href="https://github.com/TheBoringEnglish"
+                target="_blank"
+                className="about-value website-link"
+              >
+                github.com/TheBoringEnglish ↗
+              </a>
             </div>
           </div>
           <div className="divider" />
-          <div className="about-features">
-            <p>{i18n("feature_immersive")}</p>
-            <p>{i18n("feature_hover")}</p>
-            <p>{i18n("feature_smart_play")}</p>
-            <p>{i18n("feature_learning")}</p>
-            <p>{i18n("feature_export")}</p>
-          </div>
+          <div className="about-desc">{i18n("about_desc")}</div>
         </section>
       )}
 
       <p className="tip-text animate">
-        {activeSection === "translation" 
-          ? "Tip: Microsoft and Google are free and require no configuration. Use them for immediate bilingual subtitles."
-          : "TheBoringEnglish - The Professional Bilingual Subtitle Assistant for YouTube"}
+        {activeSection === "translation"
+          ? i18n("tip_builtin_engines")
+          : activeSection === "sync"
+          ? "TheBoringEnglish · Read deeply, think clearly, speak confidently."
+          : "TheBoringEnglish · Learn English immersively on YouTube"}
       </p>
     </div>
   );

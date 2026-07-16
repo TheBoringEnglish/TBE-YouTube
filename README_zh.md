@@ -1,8 +1,8 @@
-# LingoFlow (v1.0) — YouTube 双语字幕专业版
+# TheBoringEnglish (v1.0) — YouTube 双语字幕专业版
 
 [English](./README.md) | [中文]
 
-**LingoFlow** 是一款功能强大的浏览器扩展，通过实时双语字幕和智能语言学习工具提升您的 YouTube 体验。专为想要通过视频内容自然吸收语言的学习者、专业人士和多语言爱好者设计。
+**TheBoringEnglish** 是一款功能强大的浏览器扩展，通过实时双语字幕和智能语言学习工具提升您的 YouTube 体验。专为想要通过视频内容自然吸收语言的学习者、专业人士和多语言爱好者设计。
 
 ## ✨ 特性
 
@@ -29,10 +29,17 @@
 ### 🌐 多种翻译引擎
 支持 Microsoft Translate、Google Translate、DeepL 等多种引擎。根据您的语言对选择最适合的翻译引擎。
 
-### 🔄 TheBoringEnglish 主站数据联动
-支持将浏览器插件与您的 **TheBoringEnglish** Web 主站账号进行绑定联动：
-- **生词同步**：在 YouTube 上查词的记录会自动实时同步到主站的个人生词本。
-- **一键导出**：支持一键将当前 YouTube 视频字幕及语境信息直接导出到主站生成精读文章，以便进行深度阅读与听力训练。
+### 🌍 多语言国际化与智能切换
+插件完全支持国际化多语言（i18n），界面已原生适配简体中文、繁体中文、英语、日语、韩语、西班牙语、德语等十余种语言。
+- **智能语言切换**：插件无需单独设置界面语言。它会根据您在设置面板中选择的**“目标翻译语言 (Target Language)”**自动映射并切换界面语言。
+- **无缝体验**：当您将目标翻译语言设为“中文(简体)”时，侧边栏、右键菜单和配置弹窗将自动切换为简体中文，确保学习界面的语言环境最适合您的使用习惯。
+
+### 🔄 TheBoringEnglish 主站学习平台联动
+**TheBoringEnglish** 是一个 AI 驱动的沉浸式英语学习平台。在这里，您可以通过 AI 驱动的精读训练、智能背单词以及口语练习等功能，让英语学习不再枯燥：
+- **完整学习闭环**：结合 YouTube 插件，形成“看视频积累生词 -> 导出精读 -> 主站深度复习 -> 彻底掌握”的黄金学习链路。
+- **生词实时同步**：在 YouTube 视频中悬停或划词查询的生词，会自动、实时同步至 TheBoringEnglish 网页端主站的个人生词本中。
+- **一键导出精读**：在 YouTube 视频侧边栏，支持一键将当前视频的完整字幕及上下文情境导出到主站，智能生成一篇“精读训练文章”，支持在主站进行 AI 朗读、逐句跟读与听力专项强化。
+- **快速开启**：您可以直接访问 [TheBoringEnglish 官方网站](https://www.theboringenglish.com)（或部署您自己的社区版 [TBE-web](https://github.com/TheBoringEnglish/TBE-web)）开启学习。
 
 ### 🔒 安全绕过 CSP 限制
 基于 Manifest V3 标准，利用浏览器原生的主页面世界（`world: "MAIN"`）内容脚本注入技术，在最早时机挂载字幕网络请求与 Shadow DOM 拦截器。这能彻底且 100% 安全地绕过 YouTube 页面严格的 CSP（Content Security Policy）拦截，确保本地和线上环境均能稳定解析到双语字幕。
@@ -89,11 +96,11 @@
 
 ## 🔄 配置主站联动 (关联码绑定)
 
-为了将 LingoFlow 插件与您的 **TheBoringEnglish** 主站账号进行关联，请按以下步骤操作：
+为了将 TheBoringEnglish 插件与您的 **TheBoringEnglish** 主站账号进行关联，请按以下步骤操作：
 
 1. **获取 API Token**：登录您的 TheBoringEnglish 主站系统，点击进入 **“个人设置”** -> **“常规”**，在页面最下方的 **“API Token (绑定密钥)”** 一栏，点击复制您的专属 Token。
 2. **在插件中绑定**：
-   - 在浏览器中点击 LingoFlow 插件图标打开设置面板。
+   - 在浏览器中点击 TheBoringEnglish 插件图标打开设置面板。
    - 切换到 **“联动”** 标签页。
    - 输入您的 **TheBoringEnglish 服务器地址**（如：`http://localhost:6400` 或您的公网部署地址）。
    - 在 **“API Token (绑定密钥)”** 输入框中，粘贴刚才复制的 Token 密钥。
@@ -106,4 +113,4 @@
 
 ---
 
-由 **LingoFlow 团队** 用 ❤️ 构建
+由 **TheBoringEnglish 团队** 用 ❤️ 构建

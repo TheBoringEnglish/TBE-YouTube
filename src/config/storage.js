@@ -3,12 +3,12 @@ import { APP_NAME } from "./app";
 // 存储版本号固定为 2，与历史数据兼容，不随 manifest 版本号变化
 const STORAGE_VERSION = 2;
 
-export const KV_RULES_KEY = `lingoflow-rules_v${STORAGE_VERSION}.json`;
-export const KV_WORDS_KEY = "lingoflow-words.json";
-export const KV_RULES_SHARE_KEY = `lingoflow-rules-share_v${STORAGE_VERSION}.json`;
-export const KV_SETTING_KEY = `lingoflow-setting_v${STORAGE_VERSION}.json`;
-export const KV_SALT_SYNC = "LingoFlow-SYNC";
-export const KV_SALT_SHARE = "LingoFlow-SHARE";
+export const KV_RULES_KEY = `theboringenglish-rules_v${STORAGE_VERSION}.json`;
+export const KV_WORDS_KEY = "theboringenglish-words.json";
+export const KV_RULES_SHARE_KEY = `theboringenglish-rules-share_v${STORAGE_VERSION}.json`;
+export const KV_SETTING_KEY = `theboringenglish-setting_v${STORAGE_VERSION}.json`;
+export const KV_SALT_SYNC = "TheBoringEnglish-SYNC";
+export const KV_SALT_SHARE = "TheBoringEnglish-SHARE";
 
 export const STOKEY_MSAUTH = `${APP_NAME}_msauth`;
 export const STOKEY_BDAUTH = `${APP_NAME}_bdauth`;

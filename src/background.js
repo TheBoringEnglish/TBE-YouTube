@@ -4,7 +4,7 @@ import { fetchHandle } from "./libs/fetch";
 import { getHttpCache, putHttpCache, tryClearCaches } from "./libs/cache";
 import { MSG_FETCH, MSG_GET_HTTPCACHE, MSG_PUT_HTTPCACHE } from "./config";
 
-globalThis.__LINGOFLOW_CONTEXT__ = "background";
+globalThis.__THEBORINGENGLISH_CONTEXT__ = "background";
 
 /**
  * 插件安装

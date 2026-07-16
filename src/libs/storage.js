@@ -17,14 +17,14 @@ import {
 } from "../config";
 import { isExt, isGm } from "./client";
 import { browser } from "./browser";
-import { lingoflowLog } from "./log";
+import { theboringenglishLog } from "./log";
 import { debounce } from "./utils";
 
 async function set(key, val) {
   if (isExt) {
     await browser.storage.local.set({ [key]: val });
   } else if (isGm) {
-    await (window.LINGOFLOW_GM || GM).setValue(key, val);
+    await (window.THEBORINGENGLISH_GM || GM).setValue(key, val);
   } else {
     window.localStorage.setItem(key, val);
   }
@@ -35,7 +35,7 @@ async function get(key) {
     const val = await browser.storage.local.get([key]);
     return val[key];
   } else if (isGm) {
-    const val = await (window.LINGOFLOW_GM || GM).getValue(key);
+    const val = await (window.THEBORINGENGLISH_GM || GM).getValue(key);
     return val;
   }
   return window.localStorage.getItem(key);
@@ -45,7 +45,7 @@ async function del(key) {
   if (isExt) {
     await browser.storage.local.remove([key]);
   } else if (isGm) {
-    await (window.LINGOFLOW_GM || GM).deleteValue(key);
+    await (window.THEBORINGENGLISH_GM || GM).deleteValue(key);
   } else {
     window.localStorage.removeItem(key);
   }
@@ -67,7 +67,7 @@ async function getObj(key) {
   try {
     return JSON.parse(val);
   } catch (err) {
-    lingoflowLog("parse json in storage err: ", key);
+    theboringenglishLog("parse json in storage err: ", key);
   }
   return null;
 }
@@ -204,6 +204,6 @@ export const tryInitDefaultData = async () => {
       BUILTIN_RULES
     );
   } catch (err) {
-    lingoflowLog("init default", err);
+    theboringenglishLog("init default", err);
   }
 };

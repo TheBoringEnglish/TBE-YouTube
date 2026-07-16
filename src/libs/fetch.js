@@ -3,7 +3,7 @@ import { sendBgMsg } from "./msg";
 import { getSettingWithDefault } from "./storage";
 import { MSG_FETCH, DEFAULT_HTTP_TIMEOUT } from "../config";
 import { isBg } from "./browser";
-import { lingoflowLog } from "./log";
+import { theboringenglishLog } from "./log";
 import { getFetchPool } from "./pool";
 import { getHttpCachePolyfill, parseResponse } from "./cache";
 
@@ -63,7 +63,7 @@ export const fetchPatcher = async (input, init = {}, opts) => {
     try {
       timeout = (await getSettingWithDefault()).httpTimeout;
     } catch (err) {
-      lingoflowLog("getSettingWithDefault", err);
+      theboringenglishLog("getSettingWithDefault", err);
     }
   }
   if (!timeout) {
@@ -74,8 +74,8 @@ export const fetchPatcher = async (input, init = {}, opts) => {
     // todo: 自定义接口 init 可能包含了 signal
     Object.assign(init, { timeout });
 
-    const { body, headers, status, statusText } = window.LINGOFLOW_GM
-      ? await window.LINGOFLOW_GM.fetch(input, init)
+    const { body, headers, status, statusText } = window.THEBORINGENGLISH_GM
+      ? await window.THEBORINGENGLISH_GM.fetch(input, init)
       : await fetchGM(input, init);
 
     return new Response(body, {

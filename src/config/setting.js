@@ -25,7 +25,7 @@ export const TRANS_MIN_LENGTH = 2; // 最短翻译长度
 export const TRANS_MAX_LENGTH = 100000; // 最长翻译长度
 export const TRANS_NEWLINE_LENGTH = 20; // 换行字符数
 export const DEFAULT_BLACKLIST = [
-  "https://nickyc975.github.io/lingoflow/options.html",
+  "https://nickyc975.github.io/theboringenglish/options.html",
   "https://translate.google.com",
   "https://www.deepl.com/translator",
 ]; // 禁用翻译名单
@@ -33,7 +33,7 @@ export const DEFAULT_CSPLIST = []; // 禁用CSP名单
 export const DEFAULT_ORILIST = ["https://dict.youdao.com"]; // 移除Origin名单
 
 // 同步设置
-export const OPT_SYNCTYPE_WORKER = "LINGOFLOW-Worker";
+export const OPT_SYNCTYPE_WORKER = "THEBORINGENGLISH-Worker";
 export const OPT_SYNCTYPE_WEBDAV = "WebDAV";
 export const OPT_SYNCTOKEN_PERFIX = "lf_";
 export const OPT_SYNCTYPE_ALL = [OPT_SYNCTYPE_WORKER, OPT_SYNCTYPE_WEBDAV];

@@ -1,7 +1,7 @@
 {
-  "name": "lingoflow",
+  "name": "theboringenglish",
   "version": "1.0.0",
-  "description": "LingoFlow - YouTube Dual Subtitles Pro",
+  "description": "TheBoringEnglish - YouTube Dual Subtitles Pro",
   "main": "src/subtitle/YouTubeCaptionProvider.js",
   "scripts": {
     "start": "vite",

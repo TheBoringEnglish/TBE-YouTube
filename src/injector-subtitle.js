@@ -4,12 +4,12 @@ const XMLHttpRequestInjector = () => {
     XMLHttpRequest.prototype.open = function (...args) {
       const url = args[1];
       if (typeof url === "string" && url.includes("timedtext")) {
-        console.log("[LingoFlow Interceptor] XHR matched timedtext request:", url);
+        console.log("[TheBoringEnglish Interceptor] XHR matched timedtext request:", url);
         this.addEventListener("load", function () {
-          console.log("[LingoFlow Interceptor] XHR loaded timedtext data, length:", this.responseText?.length);
+          console.log("[TheBoringEnglish Interceptor] XHR loaded timedtext data, length:", this.responseText?.length);
           window.postMessage(
             {
-              type: "LINGOFLOW_XHR_DATA_YOUTUBE",
+              type: "THEBORINGENGLISH_XHR_DATA_YOUTUBE",
               url: this.responseURL,
               response: this.responseText,
             },
@@ -32,13 +32,13 @@ const FetchInjector = () => {
       const response = await originalFetch.apply(this, args);
 
       if (typeof url === "string" && url.includes("timedtext")) {
-        console.log("[LingoFlow Interceptor] Fetch matched timedtext request:", url);
+        console.log("[TheBoringEnglish Interceptor] Fetch matched timedtext request:", url);
         const clonedResponse = response.clone();
         const responseText = await clonedResponse.text();
-        console.log("[LingoFlow Interceptor] Fetch loaded timedtext data, length:", responseText?.length);
+        console.log("[TheBoringEnglish Interceptor] Fetch loaded timedtext data, length:", responseText?.length);
         window.postMessage(
           {
-            type: "LINGOFLOW_XHR_DATA_YOUTUBE",
+            type: "THEBORINGENGLISH_XHR_DATA_YOUTUBE",
             url: clonedResponse.url || url,
             response: responseText,
           },
@@ -55,4 +55,4 @@ const FetchInjector = () => {
 XMLHttpRequestInjector();
 FetchInjector();
 
-console.log("LingoFlow: Subtitle interceptor injected.");
+console.log("TheBoringEnglish: Subtitle interceptor injected.");

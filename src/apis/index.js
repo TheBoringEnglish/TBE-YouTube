@@ -43,7 +43,7 @@ export const apiMsAuth = async () =>
  */
 export const apiMicrosoftLangdetect = async (text) => {
   const cacheOpts = { text, detector: OPT_TRANS_MICROSOFT };
-  const cacheInput = `https://lingoflow.cloud/detector?${queryString.stringify(cacheOpts)}`;
+  const cacheInput = `https://theboringenglish.cloud/detector?${queryString.stringify(cacheOpts)}`;
   const cache = await getHttpCachePolyfill(cacheInput);
   if (cache) {
     return cache;
@@ -145,20 +145,14 @@ const translateDefinitions = async (dictResult, toLang) => {
     }
 
     if (parts.length === allTexts.length) {
-      // 前 defsCount 个是释义
-      if (dictResult.trs) {
-        dictResult.trs = dictResult.trs.map((tr, i) => ({
-          pos: tr.pos,
-          def: parts[i] || tr.def,
-        }));
-      }
-      // 后面的是例句翻译
-      if (dictResult.sentences) {
-        dictResult.sentences = dictResult.sentences.map((s, i) => ({
-          eng: s.eng,
-          trans: parts[defsCount + i] || "",
-        }));
-      }
+      // 返回新对象，不直接修改传入的 dictResult（避免破坏缓存引用）
+      const newTrs = dictResult.trs
+        ? dictResult.trs.map((tr, i) => ({ pos: tr.pos, def: parts[i] || tr.def }))
+        : dictResult.trs;
+      const newSentences = dictResult.sentences
+        ? dictResult.sentences.map((s, i) => ({ eng: s.eng, trans: parts[defsCount + i] || "" }))
+        : dictResult.sentences;
+      return { ...dictResult, trs: newTrs, sentences: newSentences };
     }
   } catch (e) {
     // 翻译失败，保持英文

@@ -19,7 +19,7 @@ import ShadowDomManager from "../libs/shadowDomManager.jsx";
 import { Menus } from "./Menus.jsx";
 import { buildBilingualVtt } from "./vtt";
 import { putSetting } from "../libs/storage";
-import { importSubtitleToWeb } from "../apis/lingoflow";
+import { importSubtitleToWeb } from "../apis/theboringenglish";
 
 const VIDEO_SELECT = "video.html5-main-video, #movie_player video, video";
 const CONTROLS_SELECT = ".ytp-right-controls";
@@ -43,16 +43,24 @@ class YouTubeCaptionProvider {
   #notificationEl = null;
   #notificationTimeout = null;
   #i18n = () => "";
-  #menuEventName = "lingoflow-event";
+  #menuEventName = "theboringenglish-event";
   
   // 新增：可用字幕轨道列表
   #captionTracks = [];
   
   // 新增：字幕列表管理器实例
   #subtitleListManager = null;
+  
+  // 新增：用于跟踪和取消过时异步任务的会话 Token
+  #processingSessionId = null;
+
+  // 新增：存留的未翻译字幕块及处理状态
+  #remainingChunks = [];
+  #isProcessingChunk = false;
 
   #currentLang = null;
   #currentKind = null;
+  #buttonCheckInterval = null; // 存储 setInterval ID 以便清理
 
   constructor(setting = {}) {
     this.#setting = { isAISegment: false, showOrigin: false, ...setting };
@@ -81,11 +89,11 @@ class YouTubeCaptionProvider {
   initialize() {
     window.addEventListener("message", (event) => {
       if (event.data && event.data.type) {
-        console.log("[LingoFlow Provider] Received window message type:", event.data.type);
+        console.log("[TheBoringEnglish Provider] Received window message type:", event.data.type);
       }
       if (event.data?.type === MSG_XHR_DATA_YOUTUBE) {
         const { url, response } = event.data;
-        console.log("[LingoFlow Provider] Matched MSG_XHR_DATA_YOUTUBE, URL:", url);
+        console.log("[TheBoringEnglish Provider] Matched MSG_XHR_DATA_YOUTUBE, URL:", url);
         if (url && response) {
           this.#handleInterceptedRequest(url, response);
         }
@@ -101,8 +109,6 @@ class YouTubeCaptionProvider {
       this.#flatEvents = [];
       this.#progressed = 0;
       this.#fromLang = "auto";
-      this.#progressed = 0;
-      this.#fromLang = "auto";
       this.#sendMenusMsg({
         action: MSG_MENUS_UPDATEFORM,
         data: { isAISegment: this.#setting.isAISegment },
@@ -114,8 +120,8 @@ class YouTubeCaptionProvider {
       });
     });
 
-    // 定期检查并注入按钮，应对 YouTube 极速模式下极其复杂的 DOM 变动
-    setInterval(() => {
+    // 定期检查并注入按钮，应对 YouTube 极速模式下极其复杂的 DOM 变动（ID 已存储以便清理）
+    this.#buttonCheckInterval = setInterval(() => {
       const { enabled = true } = this.#setting?.subtitleSetting || {};
       if (!enabled) return;
 
@@ -190,11 +196,20 @@ class YouTubeCaptionProvider {
                 this.#setting.apiSlug = newApiSlug;
 
                 // 重新获取 API 设置
+                let newApiSetting = null;
                 if (parsed.transApis) {
-                  const newApiSetting = parsed.transApis.find(a => a.apiSlug === newApiSlug);
+                  newApiSetting = parsed.transApis.find(a => a.apiSlug === newApiSlug);
                   if (newApiSetting) {
                     this.#setting.apiSetting = newApiSetting;
                   }
+                }
+
+                // 通知底层经理实例更新 API 配置（触发重置和即时翻译）
+                if (this.#managerInstance) {
+                  this.#managerInstance.updateSetting({
+                    apiSlug: newApiSlug,
+                    apiSetting: newApiSetting || this.#setting.apiSetting
+                  });
                 }
               }
             } catch (err) {
@@ -350,7 +365,7 @@ class YouTubeCaptionProvider {
       const vtt = buildBilingualVtt(this.#subtitles);
       downloadBlobFile(
         vtt,
-        `lingoflow-subtitles-${this.#videoId}_${Date.now()}.vtt`
+        `theboringenglish-subtitles-${this.#videoId}_${Date.now()}.vtt`
       );
     } catch (error) {
       logger.info("Youtube Provider: download subtitles:", error);
@@ -366,8 +381,8 @@ class YouTubeCaptionProvider {
   #attachNativeSubtitleListener(ytControls) {
     if (!ytControls) return;
     const ytSubtitleBtn = ytControls.querySelector(YT_SUBTITLE_BTN_SELECT);
-    if (ytSubtitleBtn && !ytSubtitleBtn.__LINGOFLOW_ATTACHED__) {
-      ytSubtitleBtn.__LINGOFLOW_ATTACHED__ = true;
+    if (ytSubtitleBtn && !ytSubtitleBtn.__THEBORINGENGLISH_ATTACHED__) {
+      ytSubtitleBtn.__THEBORINGENGLISH_ATTACHED__ = true;
       ytSubtitleBtn.addEventListener("click", () => {
         if (ytSubtitleBtn.getAttribute("aria-pressed") === "true") {
           this.#startManager();
@@ -379,12 +394,12 @@ class YouTubeCaptionProvider {
   }
 
   #injectToggleButton(ytControls) {
-    if (ytControls?.querySelector(".lingoflow-subtitle-controls")) {
+    if (ytControls?.querySelector(".theboringenglish-subtitle-controls")) {
       return;
     }
-    const lingoflowControls = document.createElement("div");
-    lingoflowControls.className = "notranslate lingoflow-subtitle-controls";
-    Object.assign(lingoflowControls.style, {
+    const theboringenglishControls = document.createElement("div");
+    theboringenglishControls.className = "notranslate theboringenglish-subtitle-controls";
+    Object.assign(theboringenglishControls.style, {
       display: "inline-flex",
       alignItems: "center",
       verticalAlign: "top",
@@ -394,19 +409,19 @@ class YouTubeCaptionProvider {
     });
 
     const toggleButton = document.createElement("button");
-    toggleButton.className = "ytp-button lingoflow-subtitle-button";
+    toggleButton.className = "ytp-button theboringenglish-subtitle-button";
     toggleButton.title = APP_NAME;
 
     toggleButton.appendChild(createLogoSVG());
-    lingoflowControls.appendChild(toggleButton);
+    theboringenglishControls.appendChild(toggleButton);
 
     const { segApiSetting, isAISegment, skipAd, isBilingual, showOrigin, showSubtitleList } =
       this.#setting;
     const menu = new ShadowDomManager({
-      id: "lingoflow-subtitle-menus",
+      id: "theboringenglish-subtitle-menus",
       className: "notranslate",
       reactComponent: Menus,
-      rootElement: lingoflowControls,
+      rootElement: theboringenglishControls,
       props: {
         i18n: this.#i18n,
         updateSetting: this.updateSetting.bind(this),
@@ -446,11 +461,11 @@ class YouTubeCaptionProvider {
     // 用 before() 插入到 CC 按钮前面，避免 insertBefore 的亲子节点限制
     const subBtn = ytControls?.querySelector(YT_SUBTITLE_BTN_SELECT);
     if (subBtn) {
-      console.log("[LingoFlow] injecting before CC button via .before()");
-      subBtn.before(lingoflowControls);
+      console.log("[TheBoringEnglish] injecting before CC button via .before()");
+      subBtn.before(theboringenglishControls);
     } else {
-      console.log("[LingoFlow] CC button not found, appending to ytControls.");
-      ytControls?.appendChild(lingoflowControls);
+      console.log("[TheBoringEnglish] CC button not found, appending to ytControls.");
+      ytControls?.appendChild(theboringenglishControls);
     }
   }
 
@@ -591,7 +606,11 @@ class YouTubeCaptionProvider {
       url.searchParams.set("fmt", "json3");
       const res = await fetch(url.href);
       if (res.ok) {
-        const json = await res.json();
+        const text = await res.text();
+        if (!text || !text.trim()) {
+          return null;
+        }
+        const json = JSON.parse(text);
         const events = json?.events;
         if (events) {
           const targetFlat = this.#genFlatEvents(events);
@@ -612,7 +631,7 @@ class YouTubeCaptionProvider {
         }
       }
     } catch (e) {
-      console.error("[LingoFlow Provider] getOfficialTranslationByTime err:", e);
+      console.error("[TheBoringEnglish Provider] getOfficialTranslationByTime err:", e);
     }
     return null;
   }
@@ -620,6 +639,11 @@ class YouTubeCaptionProvider {
   hasOfficialEnglishSubtitle() {
     if (!this.#captionTracks) return false;
     return this.#captionTracks.some(t => t.languageCode?.startsWith('en') && t.kind !== 'asr');
+  }
+
+  hasEnglishSubtitle() {
+    if (!this.#captionTracks) return false;
+    return this.#captionTracks.some(t => t.languageCode?.startsWith('en'));
   }
 
   #getFromLang(lang) {
@@ -638,7 +662,7 @@ class YouTubeCaptionProvider {
 
   async #handleInterceptedRequest(url, responseText) {
     const videoId = this.#videoId;
-    console.log("[LingoFlow Provider] handleInterceptedRequest triggered. videoId:", videoId, "url:", url);
+    console.log("[TheBoringEnglish Provider] handleInterceptedRequest triggered. videoId:", videoId, "url:", url);
     if (!videoId) {
       logger.debug("Youtube Provider: videoId not found.");
       return;
@@ -702,14 +726,9 @@ class YouTubeCaptionProvider {
       let toLang = this.#setting.toLang;
 
       console.log(
-        `[LingoFlow Provider] lang: ${lang}, fromLang: ${fromLang}, toLang: ${toLang}`
+        `[TheBoringEnglish Provider] lang: ${lang}, fromLang: ${fromLang}, toLang: ${toLang}`
       );
-      if (this.#isSameLang(fromLang, toLang)) {
-        // 源语言和目标语言相同时，自动回退到中文
-        console.log(`[LingoFlow Provider] fromLang(${fromLang}) === toLang(${toLang}), falling back to zh-CN`);
-        toLang = "zh-CN";
-        this.#setting.toLang = toLang;
-      }
+      // 不再强制相同时回退到 zh-CN，以支持用户选 English 作为目标语言（做纯英文断句或不翻译对照）
 
       const flatEvents = this.#genFlatEvents(events);
       if (!flatEvents?.length) {
@@ -780,6 +799,8 @@ class YouTubeCaptionProvider {
   #reProcessEvents() {
     this.#progressed = 0;
     this.#subtitles = [];
+    this.#remainingChunks = [];
+    this.#isProcessingChunk = false;
 
     const videoId = this.#videoId;
     const flatEvents = this.#flatEvents;
@@ -795,6 +816,9 @@ class YouTubeCaptionProvider {
   }
 
   async #eventsToSubtitles({ videoId, flatEvents, fromLang }) {
+    const sessionId = Math.random().toString();
+    this.#processingSessionId = sessionId;
+
     const { isAISegment, segApiSetting, chunkLength, toLang } = this.#setting;
     let fallbackSubtitles = this.#formatSubtitles(flatEvents, fromLang);
     
@@ -837,18 +861,12 @@ class YouTubeCaptionProvider {
       }
 
       if (eventChunks.length > 1) {
-        const remainingChunks = eventChunks.slice(1);
-        this.#processRemainingChunksAsync({
-          chunks: remainingChunks,
-          videoId,
-          fromLang,
-          toLang,
-          segApiSetting,
-        });
+        this.#remainingChunks = eventChunks.slice(1);
+        this.#setupTimeUpdateListener();
 
-        const processed = Math.floor(100 / eventChunks.length);
+        const progressed = Math.floor(100 / eventChunks.length);
 
-        return [firstBatchSubtitles, processed];
+        return [firstBatchSubtitles, progressed];
       } else {
         return [firstBatchSubtitles, 100];
       }
@@ -926,6 +944,12 @@ class YouTubeCaptionProvider {
   }
 
   #destroyManager() {
+    this.#removeTimeUpdateListener();
+    // 清理按钞定期检查定时器，防止内存泄漏
+    if (this.#buttonCheckInterval !== null) {
+      clearInterval(this.#buttonCheckInterval);
+      this.#buttonCheckInterval = null;
+    }
     if (!this.#managerInstance) {
       return;
     }
@@ -1203,7 +1227,8 @@ class YouTubeCaptionProvider {
 
     segments.push(buffer);
 
-    return segments;
+    // 过滤掉可能为 null 的末尾元素（events 为空或最后一项为空时产生）
+    return segments.filter(Boolean);
   }
 
   #splitEventsIntoChunks(flatEvents, chunkLength = 1000) {
@@ -1260,10 +1285,16 @@ class YouTubeCaptionProvider {
     fromLang,
     toLang,
     segApiSetting,
+    sessionId,
   }) {
     logger.info(`Youtube Provider: Starting for ${chunks.length} chunks.`);
 
     for (let i = 0; i < chunks.length; i++) {
+      if (this.#processingSessionId !== sessionId || videoId !== this.#videoId) {
+        logger.info("Youtube Provider: Session or videoId changed, stopping remaining chunks processing.");
+        break;
+      }
+
       const chunkEvents = chunks[i];
       const chunkNum = i + 2;
       logger.debug(
@@ -1281,6 +1312,11 @@ class YouTubeCaptionProvider {
           segApiSetting,
         });
 
+        if (this.#processingSessionId !== sessionId) {
+          logger.info("Youtube Provider: Session changed while fetching AI subtitle chunk.");
+          break;
+        }
+
         if (aiSubtitles?.length > 0) {
           subtitlesForThisChunk = aiSubtitles;
         } else {
@@ -1293,9 +1329,9 @@ class YouTubeCaptionProvider {
         subtitlesForThisChunk = this.#formatSubtitles(chunkEvents, fromLang);
       }
 
-      if (videoId !== this.#videoId) {
+      if (this.#processingSessionId !== sessionId || videoId !== this.#videoId) {
         logger.info(
-          "Youtube Provider: videoId changed!!",
+          "Youtube Provider: Session or videoId changed after fetching chunk!!",
           videoId,
           this.#videoId
         );
@@ -1324,9 +1360,113 @@ class YouTubeCaptionProvider {
     logger.info("Youtube Provider: All subtitle chunks processed.");
   }
 
+  #setupTimeUpdateListener() {
+    this.#removeTimeUpdateListener();
+    const videoEl = this.#videoEl;
+    if (videoEl) {
+      videoEl.addEventListener("timeupdate", this.#handleTimeUpdate);
+      logger.info("Youtube Provider: TimeUpdate listener added for pre-fetching AI subtitles.");
+    }
+  }
+
+  #removeTimeUpdateListener() {
+    const videoEl = this.#videoEl;
+    if (videoEl) {
+      videoEl.removeEventListener("timeupdate", this.#handleTimeUpdate);
+      logger.info("Youtube Provider: TimeUpdate listener removed.");
+    }
+  }
+
+  #handleTimeUpdate = () => {
+    if (!this.#remainingChunks || this.#remainingChunks.length === 0) {
+      this.#removeTimeUpdateListener();
+      return;
+    }
+
+    if (this.#isProcessingChunk) {
+      return;
+    }
+
+    const videoEl = this.#videoEl;
+    if (!videoEl) return;
+
+    const currentTimeMs = videoEl.currentTime * 1000;
+    // 提前 60 秒进行预加载翻译（大模型处理通常需要几秒，所以提前60秒是合理的，正好也等于提前 20 条左右的字幕段）
+    const lookAheadMs = 60 * 1000;
+
+    const nextChunk = this.#remainingChunks[0];
+    const nextChunkStart = nextChunk[0]?.start;
+
+    if (nextChunkStart !== undefined && currentTimeMs + lookAheadMs >= nextChunkStart) {
+      // 触发这一块的翻译，并将其移出待处理队列
+      const chunkToProcess = this.#remainingChunks.shift();
+      this.#processSingleChunk(chunkToProcess);
+    }
+  };
+
+  async #processSingleChunk(chunkEvents) {
+    if (!chunkEvents || chunkEvents.length === 0) return;
+    
+    this.#isProcessingChunk = true;
+    const videoId = this.#videoId;
+    const fromLang = this.#fromLang;
+    const toLang = this.#setting.toLang;
+    const segApiSetting = this.#setting.segApiSetting;
+    const sessionId = this.#processingSessionId;
+
+    logger.info(`Youtube Provider: Pre-fetching AI subtitle chunk with start time: ${chunkEvents[0].start}`);
+
+    let subtitlesForThisChunk = [];
+
+    try {
+      const aiSubtitles = await this.#aiSegment({
+        videoId,
+        chunkEvents,
+        fromLang,
+        toLang,
+        segApiSetting,
+      });
+
+      if (this.#processingSessionId !== sessionId) {
+        logger.info("Youtube Provider: Session changed while pre-fetching chunk, aborting.");
+        this.#isProcessingChunk = false;
+        return;
+      }
+
+      if (aiSubtitles?.length > 0) {
+        subtitlesForThisChunk = aiSubtitles;
+      } else {
+        subtitlesForThisChunk = this.#formatSubtitles(chunkEvents, fromLang);
+      }
+    } catch (chunkError) {
+      logger.warn("Youtube Provider: pre-fetch chunk error", chunkError);
+      subtitlesForThisChunk = this.#formatSubtitles(chunkEvents, fromLang);
+    }
+
+    if (this.#processingSessionId !== sessionId || videoId !== this.#videoId) {
+      logger.info("Youtube Provider: Session or video changed after fetching chunk, aborting.");
+      this.#isProcessingChunk = false;
+      return;
+    }
+
+    if (subtitlesForThisChunk.length > 0) {
+      this.#subtitles.push(...subtitlesForThisChunk);
+      
+      // 更新翻译进度（进度数：当前已翻译行数比例）
+      const totalEstimated = this.#subtitles.length + (this.#remainingChunks.length * 15); // 估算总条数
+      this.#progressed = Math.min(99, Math.floor((this.#subtitles.length * 100) / totalEstimated));
+
+      if (this.#managerInstance) {
+        this.#managerInstance.appendSubtitles(subtitlesForThisChunk);
+      }
+    }
+
+    this.#isProcessingChunk = false;
+  }
+
   #createNotificationElement() {
     const notificationEl = document.createElement("div");
-    notificationEl.className = "lingoflow-notification";
+    notificationEl.className = "theboringenglish-notification";
     Object.assign(notificationEl.style, {
       position: "absolute",
       top: "40%",
@@ -1366,9 +1506,9 @@ class YouTubeCaptionProvider {
   async handleImportSubtitle() {
     try {
       const syncResult = await new Promise((resolve) => {
-        chrome.storage.local.get(["lingoflow_sync_config"], resolve);
+        chrome.storage.local.get(["theboringenglish_sync_config"], resolve);
       });
-      const config = syncResult.lingoflow_sync_config;
+      const config = syncResult.theboringenglish_sync_config;
       if (!config || !config.isConnected || !config.token) {
         alert("请先点击浏览器插件图标，在‘联动’选项卡中登录并连接你的 TheBoringEnglish 个人账户！");
         return;
@@ -1388,9 +1528,18 @@ class YouTubeCaptionProvider {
         console.error("Failed to parse video id", e);
       }
 
-      if (!this.hasOfficialEnglishSubtitle()) {
-        alert("没有官方英文字幕，无法导入。");
+      if (!this.hasEnglishSubtitle()) {
+        alert(this.#i18n("no_en_subtitle") || "没有检测到英文字幕（官方或自动生成），无法导入。");
         return;
+      }
+
+      // 检查是否导入自动生成（ASR）的字幕
+      const isAsr = this.#currentKind === 'asr' || !this.hasOfficialEnglishSubtitle();
+      if (isAsr) {
+        const confirmMsg = this.#i18n("import_asr_confirm") || "此视频当前使用的是自动生成的字幕。自动生成的字幕在导入后会经过 AI 语义校对与断句，可能会和视频时间轴无法完美对应（存在几秒的偏差或合并）。是否确认继续导入？";
+        if (!confirm(confirmMsg)) {
+          return;
+        }
       }
 
       let subtitleItems = this.#subtitles.length > 0 ? this.#subtitles : this.#flatEvents;
@@ -1404,22 +1553,10 @@ class YouTubeCaptionProvider {
       const parsedJson = [];
 
       subtitleItems.forEach(item => {
-        let textEn = "";
-        let textNative = "";
-        let start = 0;
-        let end = 0;
-
-        if (item.text !== undefined) {
-          textEn = item.text || "";
-          textNative = item.translation || "";
-          start = (item.start || 0) / 1000;
-          end = (item.end || 0) / 1000;
-        } else {
-          textEn = item.text || "";
-          textNative = "";
-          start = (item.start || 0) / 1000;
-          end = (item.end || 0) / 1000;
-        }
+        const textEn = item.text || "";
+        const textNative = item.translation || "";
+        const start = (item.start || 0) / 1000;
+        const end = (item.end || 0) / 1000;
 
         if (textEn) {
           textLines.push(textEn);
@@ -1436,7 +1573,7 @@ class YouTubeCaptionProvider {
       const content = textLines.join("\n\n");
       
       const setBtnState = (text, isD = false) => {
-        const bRight = document.querySelector("#lingoflow-import-btn");
+        const bRight = document.querySelector("#theboringenglish-import-btn");
         if (bRight) {
           bRight.textContent = text;
           bRight.disabled = isD;
@@ -1447,7 +1584,7 @@ class YouTubeCaptionProvider {
         });
       };
 
-      setBtnState("正在导入...", true);
+      setBtnState("Importing...", true);
 
       const importResult = await importSubtitleToWeb(config.serverUrl, config.token, {
         title,
@@ -1457,33 +1594,33 @@ class YouTubeCaptionProvider {
         parsedJson
       });
 
-      setBtnState("导入成功! ✓", false);
+      setBtnState("Imported! ✓", false);
       
-      if (confirm(`字幕已成功导入 TheBoringEnglish！\n文章标题: ${title}\n\n是否立即前往主站精读学习？`)) {
+      if (confirm(`Subtitles successfully imported to TheBoringEnglish!\nArticle Title: ${title}\n\nWould you like to go to the main site for intensive reading now?`)) {
         window.open(`${config.serverUrl}/video-study/${importResult.article_id}`, "_blank");
       }
 
       setTimeout(() => {
-        setBtnState(this.#i18n("import_subtitle") || "导入 TheBoringEnglish", false);
+        setBtnState(this.#i18n("import_subtitle") || "Import", false);
       }, 3000);
 
     } catch (err) {
       console.error("[TheBoringEnglish] Import failed:", err);
-      alert(`导入失败: ${err.message}`);
+      alert(`Import failed: ${err.message}`);
       const setFailedState = () => {
-        const bRight = document.querySelector("#lingoflow-import-btn");
-        if (bRight) { bRight.textContent = "导入失败 ✗"; bRight.disabled = false; }
+        const bRight = document.querySelector("#theboringenglish-import-btn");
+        if (bRight) { bRight.textContent = "Failed ✗"; bRight.disabled = false; }
         
         this.#sendMenusMsg({
           action: MSG_MENUS_UPDATEFORM,
-          data: { importText: "导入失败 ✗", importDisabled: false }
+          data: { importText: "Failed ✗", importDisabled: false }
         });
         
         setTimeout(() => {
-          if (bRight) bRight.textContent = "导入精读";
+          if (bRight) bRight.textContent = "Import";
           this.#sendMenusMsg({
             action: MSG_MENUS_UPDATEFORM,
-            data: { importText: this.#i18n("import_subtitle") || "导入 TheBoringEnglish", importDisabled: false }
+            data: { importText: this.#i18n("import_subtitle") || "Import", importDisabled: false }
           });
         }, 3000);
       };
@@ -1501,7 +1638,7 @@ export const YouTubeInitializer = (() => {
     }
     initialized = true;
 
-    logger.info("LingoFlow: Initializing...");
+    logger.info("TheBoringEnglish: Initializing...");
     const provider = new YouTubeCaptionProvider(setting);
     provider.initialize();
   };

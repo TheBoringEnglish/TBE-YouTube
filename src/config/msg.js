@@ -3,7 +3,7 @@ export const CMD_TOGGLE_STYLE = "toggleStyle";
 export const CMD_OPEN_OPTIONS = "openOptions";
 export const CMD_OPEN_TRANBOX = "openTranbox";
 
-export const MSG_FETCH = "lingoflow_fetch";
+export const MSG_FETCH = "theboringenglish_fetch";
 export const MSG_GET_HTTPCACHE = "get_httpcache";
 export const MSG_PUT_HTTPCACHE = "put_httpcache";
 export const MSG_OPEN_OPTIONS = "open_options";
@@ -28,9 +28,9 @@ export const MSG_BUILTINAI_TRANSLATE = "builtinai_translte";
 export const MSG_SET_LOGLEVEL = "set_loglevel";
 export const MSG_CLEAR_CACHES = "clear_caches";
 
-export const EVENT_LINGOFLOW = "event_lingoflow_translate";
+export const EVENT_THEBORINGENGLISH = "event_theboringenglish_translate";
 
-export const MSG_XHR_DATA_YOUTUBE = "LINGOFLOW_XHR_DATA_YOUTUBE";
+export const MSG_XHR_DATA_YOUTUBE = "THEBORINGENGLISH_XHR_DATA_YOUTUBE";
 
 export const MSG_MENUS_PROGRESSED = "progressed";
 export const MSG_MENUS_UPDATEFORM = "updateFormData";
