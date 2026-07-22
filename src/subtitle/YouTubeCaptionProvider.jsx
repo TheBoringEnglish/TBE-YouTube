@@ -372,6 +372,96 @@ class YouTubeCaptionProvider {
     }
   }
 
+  downloadCustomSubtitle(type, format) {
+    let subtitleItems = [];
+
+    if (type === 'origin') {
+      // 原文字幕：直接从 flatEvents 全量格式化，确保哪怕视频没播完也是 100% 完整！
+      if (this.#flatEvents && this.#flatEvents.length > 0) {
+        subtitleItems = this.#formatSubtitles(this.#flatEvents, this.#fromLang);
+      } else {
+        subtitleItems = this.#subtitles;
+      }
+    } else {
+      // 译文/双语：使用已翻译好的 subtitles
+      subtitleItems = this.#subtitles;
+
+      // 如果是 AI 智能断句翻译，且进度尚未到 100%，友情提示用户
+      if (this.#progressed < 100 && this.#setting.isAISegment) {
+        const confirmDownload = confirm(
+          `当前视频的 AI 智能翻译尚未全部加载完成（当前已完成进度：${this.#progressed}%）。\n\n点击【确定】继续下载当前已翻译的部分；\n点击【取消】返回，可将视频进度条拖到最后以完成全部加载后再行下载。`
+        );
+        if (!confirmDownload) return;
+      }
+    }
+
+    if (!subtitleItems || !subtitleItems.length) {
+      alert(this.#i18n("no_subtitle_ready") || "字幕数据未就绪或为空！");
+      return;
+    }
+
+    const title = document.title.replace(/\s*-\s*YouTube$/, "") || "YouTube_Subtitle";
+    const cleanTitle = title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "_");
+    const filename = `${cleanTitle}_${type}_subtitles`;
+
+    if (format === 'txt') {
+      const txtLines = [];
+      subtitleItems.forEach(item => {
+        const textEn = item.text || "";
+        const textCn = item.translation || "";
+        if (type === 'origin') {
+          if (textEn) txtLines.push(textEn);
+        } else if (type === 'translation') {
+          if (textCn) txtLines.push(textCn);
+        } else {
+          if (textEn || textCn) {
+            txtLines.push(`${textEn}\n${textCn}`);
+          }
+        }
+      });
+      const blob = new Blob([txtLines.join("\n\n")], { type: "text/plain;charset=utf-8" });
+      downloadBlobFile(blob, `${filename}.txt`);
+    } else if (format === 'srt') {
+      const srtLines = [];
+      const formatSrtTime = (ms) => {
+        const totalSecs = ms / 1000;
+        const hrs = Math.floor(totalSecs / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = Math.floor(totalSecs % 60);
+        const millis = Math.floor(ms % 1000);
+        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(millis).padStart(3, '0')}`;
+      };
+
+      let activeIndex = 1;
+      subtitleItems.forEach((item) => {
+        const startStr = formatSrtTime(item.start || 0);
+        const endStr = formatSrtTime(item.end || 0);
+        const textEn = item.text || "";
+        const textCn = item.translation || "";
+
+        let textContent = "";
+        if (type === 'origin') {
+          textContent = textEn;
+        } else if (type === 'translation') {
+          textContent = textCn;
+        } else {
+          textContent = `${textEn}\n${textCn}`;
+        }
+
+        if (textContent.trim()) {
+          srtLines.push(`${activeIndex}`);
+          srtLines.push(`${startStr} --> ${endStr}`);
+          srtLines.push(textContent);
+          srtLines.push("");
+          activeIndex++;
+        }
+      });
+
+      const blob = new Blob([srtLines.join("\n")], { type: "text/plain;charset=utf-8" });
+      downloadBlobFile(blob, `${filename}.srt`);
+    }
+  }
+
   #sendMenusMsg({ action, data }) {
     window.dispatchEvent(
       new CustomEvent(this.#menuEventName, { detail: { action, data } })
@@ -1533,14 +1623,8 @@ class YouTubeCaptionProvider {
         return;
       }
 
-      // 检查是否导入自动生成（ASR）的字幕
-      const isAsr = this.#currentKind === 'asr' || !this.hasOfficialEnglishSubtitle();
-      if (isAsr) {
-        const confirmMsg = this.#i18n("import_asr_confirm") || "此视频当前使用的是自动生成的字幕。自动生成的字幕在导入后会经过 AI 语义校对与断句，可能会和视频时间轴无法完美对应（存在几秒的偏差或合并）。是否确认继续导入？";
-        if (!confirm(confirmMsg)) {
-          return;
-        }
-      }
+      // 移除自动生成（ASR）字幕的导入 confirm 拦截，直接进行导入
+
 
       let subtitleItems = this.#subtitles.length > 0 ? this.#subtitles : this.#flatEvents;
 
@@ -1606,7 +1690,20 @@ class YouTubeCaptionProvider {
 
     } catch (err) {
       console.error("[TheBoringEnglish] Import failed:", err);
-      alert(`Import failed: ${err.message}`);
+      if (err.message && (
+        err.message.includes("Token expired or invalid") ||
+        err.message.includes("Authentication token missing") ||
+        err.message.includes("Token 验证失败")
+      )) {
+        alert(this.#i18n("import_fail_token") || "Import failed: Your sync Token has expired or is invalid. Please click the TBE extension icon in the top right, go to the \"Sync\" tab, and reconnect your TheBoringEnglish account (log in to the main web site first if you have logged out).");
+      } else if (err.message && (
+        err.message.includes("Failed to fetch") ||
+        err.message.includes("failed to fetch")
+      )) {
+        alert(this.#i18n("import_fail_network") || "Import failed: Unable to connect to the TBE server. Please ensure that your TheBoringEnglish backend service is running (usually http://localhost:8000), and check if the \"Server URL\" in the extension \"Sync\" tab is correct.");
+      } else {
+        alert(`Import failed: ${err.message}`);
+      }
       const setFailedState = () => {
         const bRight = document.querySelector("#theboringenglish-import-btn");
         if (bRight) { bRight.textContent = "Failed ✗"; bRight.disabled = false; }
