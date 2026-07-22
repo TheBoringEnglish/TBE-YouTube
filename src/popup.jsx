@@ -107,6 +107,7 @@ function App() {
 
   // 检测相关状态
   const [detectedSession, setDetectedSession] = useState(null);
+  const [detectedSessions, setDetectedSessions] = useState([]);
   const [detecting, setDetecting] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ type: "", message: "" });
   const [syncLoading, setSyncLoading] = useState(false);
@@ -166,9 +167,10 @@ function App() {
     if (typeof chrome === "undefined" || !chrome.tabs || !chrome.scripting) return;
     setDetecting(true);
     setDetectedSession(null);
+    setDetectedSessions([]);
     try {
       const tabs = await new Promise((resolve) => {
-        chrome.tabs.query({ url: ["*://*.theboringenglish.com/*", "*://localhost/*"] }, (res) => {
+        chrome.tabs.query({ url: ["*://*.theboringenglish.com/*", "*://localhost/*", "*://localhost:*/*", "*://127.0.0.1:*/*"] }, (res) => {
           if (chrome.runtime.lastError) {
             console.log("tabs.query status:", chrome.runtime.lastError.message);
             resolve([]);
@@ -183,16 +185,26 @@ function App() {
         return;
       }
 
-      let matched = null;
+      const sessions = [];
       for (const tab of tabs) {
         const results = await new Promise((resolve) => {
           chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            func: () => ({
-              token: localStorage.getItem("lingoflow_token"),
-              username: localStorage.getItem("lingoflow_username"),
-              serverUrl: window.location.origin,
-            }),
+            func: () => {
+              let username = "";
+              try {
+                const userJson = localStorage.getItem("lingoflow_user");
+                if (userJson) {
+                  const userObj = JSON.parse(userJson);
+                  username = userObj.username || "";
+                }
+              } catch (e) {}
+              return {
+                token: localStorage.getItem("lingoflow_token"),
+                username: username,
+                serverUrl: window.location.origin,
+              };
+            },
           }, (res) => {
             if (chrome.runtime.lastError) {
               console.log("executeScript status:", chrome.runtime.lastError.message);
@@ -205,17 +217,20 @@ function App() {
 
         const data = results?.[0]?.result;
         if (data?.token) {
-          matched = {
+          const sess = {
             token: data.token,
             username: data.username || "TheBoringEnglish User",
             serverUrl: data.serverUrl || "https://www.theboringenglish.com"
           };
-          break;
+          if (!sessions.some(s => s.token === sess.token && s.serverUrl === sess.serverUrl)) {
+            sessions.push(sess);
+          }
         }
       }
 
-      if (matched) {
-        setDetectedSession(matched);
+      setDetectedSessions(sessions);
+      if (sessions.length > 0) {
+        setDetectedSession(sessions[0]);
       }
     } catch (e) {
       console.error("Login detection error:", e);
@@ -376,9 +391,61 @@ function App() {
   return (
     <div className="glow-container">
       {/* Header */}
-      <header className="header animate">
+      <header className="header animate" style={{ position: "relative" }}>
         <h1 className="logo-text">TheBoringEnglish</h1>
         <p className="subtitle">{i18n("popup_subtitle")}</p>
+        {typeof chrome !== "undefined" && chrome.tabs && (
+          <div style={{ position: "absolute", right: "16px", top: "16px", display: "flex", gap: "8px" }}>
+            {/* 独立标签页打开按钮 */}
+            {window.location.protocol === "chrome-extension:" && !window.location.search.includes("mode=tab") && (
+              <button
+                onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?mode=tab") })}
+                title={uiLang === "zh" || uiLang === "zh_TW" ? "在独立标签页中打开（防止自动关闭）" : "Open in new tab (prevent auto-closing)"}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "16px",
+                  color: "var(--text-color, #888)",
+                  opacity: 0.7,
+                  padding: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "opacity 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
+              >
+                ↗
+              </button>
+            )}
+            {/* 关闭当前标签页的按钮 */}
+            {window.location.protocol === "chrome-extension:" && (window.location.search.includes("mode=tab") || !window.location.pathname.includes("popup.html")) && (
+              <button
+                onClick={() => window.close()}
+                title={uiLang === "zh" || uiLang === "zh_TW" ? "关闭当前页面" : "Close current page"}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "16px",
+                  color: "var(--text-color, #888)",
+                  opacity: 0.7,
+                  padding: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "opacity 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = 0.7}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Tab Navigation */}
@@ -577,6 +644,36 @@ function App() {
                         <strong style={{ color: "#d97706", marginLeft: 4 }}>{detectedSession.username}</strong>
                       </div>
                     </div>
+
+                    {/* 如果检测到多个主站会话，展示下拉选择框供用户选择 */}
+                    {detectedSessions.length > 1 && (
+                      <div className="form-group" style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <label className="form-label" style={{ fontSize: "11px", color: "var(--text-secondary)", alignSelf: "flex-start" }}>
+                          {uiLang === "zh" || uiLang === "zh_TW" ? "选择要关联的主站账户：" : "Select server to connect:"}
+                        </label>
+                        <select
+                          className="input-field"
+                          style={{ padding: "6px 12px", fontSize: "12px", height: "auto", cursor: "pointer" }}
+                          value={detectedSessions.indexOf(detectedSession)}
+                          onChange={(e) => setDetectedSession(detectedSessions[parseInt(e.target.value)])}
+                        >
+                          {detectedSessions.map((sess, idx) => {
+                            let displayHost = "";
+                            try {
+                              displayHost = new URL(sess.serverUrl).host;
+                            } catch (e) {
+                              displayHost = sess.serverUrl;
+                            }
+                            return (
+                              <option key={idx} value={idx}>
+                                {sess.username} ({displayHost})
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    )}
+
                     <button 
                       className="save-btn" 
                       onClick={handleAutoConnectClick}

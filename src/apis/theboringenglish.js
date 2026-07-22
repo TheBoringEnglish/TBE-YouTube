@@ -147,5 +147,5 @@ export async function fetchUserInfoWithToken(serverUrl, token) {
   }
 
   const data = await response.json();
-  return data; // 通常包含 username 或 email
+  return data.user || data; // 通常包含 username 或 email
 }

@@ -906,28 +906,28 @@ export class YouTubeSubtitleList {
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
-      padding: "7px 16px",
-      background: "#f59e0b",
-      color: "#1c0a00",
+      padding: "6px 12px",
+      background: "linear-gradient(90deg, #4f46e5, #7c3aed)",
+      color: "#ffffff",
       textDecoration: "none",
-      fontSize: "11.5px",
-      fontWeight: "600",
+      fontSize: "11px",
+      fontWeight: "500",
       letterSpacing: "0.1px",
       cursor: "pointer",
       textAlign: "left",
       transition: "filter 0.2s",
       flexShrink: "0",
-      borderBottom: `1px solid rgba(140, 70, 0, 0.25)`,
+      borderBottom: `1px solid rgba(255, 255, 255, 0.1)`,
       fontFamily: "'Inter', -apple-system, sans-serif",
     });
 
     const bannerLeft = document.createElement("span");
-    bannerLeft.textContent = "✦ TheBoringEnglish";
+    bannerLeft.textContent = "✦ TBE";
     Object.assign(bannerLeft.style, {
       fontWeight: "700",
-      fontSize: "12px",
+      fontSize: "11px",
       letterSpacing: "0.3px",
-      color: "#431407",
+      color: "#ffffff",
       flexShrink: "0",
     });
 
@@ -936,18 +936,21 @@ export class YouTubeSubtitleList {
     Object.assign(bannerCenter.style, {
       flex: "1",
       textAlign: "center",
-      fontSize: "10.5px",
-      color: "#451a03",
+      fontSize: "10px",
+      color: "rgba(255, 255, 255, 0.9)",
       opacity: "0.85",
-      padding: "0 8px",
+      padding: "0 6px",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis"
     });
 
     const bannerRight = document.createElement("span");
     bannerRight.textContent = "Open →";
     Object.assign(bannerRight.style, {
-      fontSize: "10.5px",
+      fontSize: "10px",
       fontWeight: "700",
-      color: "#431407",
+      color: "#ffffff",
       flexShrink: "0",
       opacity: "0.8",
       transition: "opacity 0.2s, transform 0.2s",
@@ -960,7 +963,7 @@ export class YouTubeSubtitleList {
     promoBanner.addEventListener("mouseenter", () => {
       promoBanner.style.filter = "brightness(1.06)";
       bannerRight.style.opacity = "1";
-      bannerRight.style.transform = "translateX(3px)";
+      bannerRight.style.transform = "translateX(2px)";
     });
     promoBanner.addEventListener("mouseleave", () => {
       promoBanner.style.filter = "brightness(1)";
@@ -977,14 +980,15 @@ export class YouTubeSubtitleList {
       justifyContent: "space-between",
       alignItems: "center",
       borderBottom: `1px solid ${s.tabBorder}`,
-      background: s.accentSubtle,
+      background: "var(--theboringenglish-bg-card)",
       flexShrink: "0",
-      paddingRight: "8px",
-      paddingLeft: "4px",
+      paddingRight: "6px",
+      paddingLeft: "2px",
+      height: "36px"
     });
 
     const tabButtons = document.createElement("div");
-    Object.assign(tabButtons.style, { display: "flex" });
+    Object.assign(tabButtons.style, { display: "flex", height: "100%" });
 
     const subtitleTab = this._createTab("Subtitles", "subtitles");
     const vocabularyTab = this._createTab("Vocabulary", "vocabulary");
@@ -1011,6 +1015,15 @@ export class YouTubeSubtitleList {
       this.vocabularyListEl.style.display = 'flex';
     });
 
+    // 创建右侧紧凑工具栏
+    const toolBar = document.createElement("div");
+    Object.assign(toolBar.style, {
+      display: "flex",
+      alignItems: "center",
+      gap: "5px",
+      height: "100%"
+    });
+
     // 主题切换按钮
     const themeToggle = document.createElement("button");
     themeToggle.id = "theboringenglish-theme-toggle";
@@ -1019,21 +1032,21 @@ export class YouTubeSubtitleList {
       background: "transparent",
       border: "none",
       cursor: "pointer",
-      fontSize: "16px",
-      width: "32px",
-      height: "32px",
+      fontSize: "14px",
+      width: "26px",
+      height: "26px",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       borderRadius: "6px",
-      transition: "all 0.2s ease",
+      transition: "all 0.18s ease",
       padding: "0",
       margin: "0",
     });
 
     themeToggle.addEventListener('mouseenter', () => {
       themeToggle.style.backgroundColor = s.bgHover;
-      themeToggle.style.transform = "scale(1.1)";
+      themeToggle.style.transform = "scale(1.08)";
     });
     themeToggle.addEventListener('mouseleave', () => {
       themeToggle.style.backgroundColor = "transparent";
@@ -1046,50 +1059,54 @@ export class YouTubeSubtitleList {
       themeToggle.textContent = this._theme === 'dark' ? '🌙' : '☀️';
     });
 
-    // 一键导入到 TheBoringEnglish 精读按钮
+    // 一键同步按钮
     const importBtn = document.createElement("button");
     importBtn.id = "theboringenglish-import-btn";
 
-    // 根据 uiLang 显示本地化文字
-    const IMPORT_LABELS = {
-      zh: "导入到 TheBoringEnglish",
-      zh_TW: "匯入到 TheBoringEnglish",
-      ja: "TBEに読書記事として保存",
-      ko: "TheBoringEnglish에 저장",
-      fr: "Enregistrer dans TBE",
-      de: "In TBE speichern",
-      es: "Guardar en TBE",
-      pt: "Salvar no TBE",
-      it: "Salva in TBE",
-      ru: "Сохранить в TBE",
-      vi: "Lưu vào TBE",
+    // 根据 uiLang 极致缩短按钮文本，防止极小侧栏拥挤折行
+    const IMPORT_SHORT_LABELS = {
+      zh: "一键同步",
+      zh_TW: "一鍵同步",
+      ja: "同期保存",
+      ko: "동기화",
+      fr: "Synchro",
+      de: "Sync",
+      es: "Sincronizar",
+      pt: "Sincronizar",
+      it: "Sincronizza",
+      ru: "Синхр.",
+      vi: "Đồng bộ",
     };
+    
     chrome.storage.local.get(["setting"], (result) => {
       const lang = result?.setting?.uiLang || "en";
-      importBtn.textContent = IMPORT_LABELS[lang] || "Save to TheBoringEnglish";
+      importBtn.textContent = IMPORT_SHORT_LABELS[lang] || "Sync to Web";
     });
-    importBtn.textContent = "Save to TheBoringEnglish"; // 默认，异步覆盖
+    importBtn.textContent = "Sync to Web"; // 默认
 
     Object.assign(importBtn.style, {
-      background: "#f59e0b",
-      color: "#1c0a00",
+      background: "linear-gradient(135deg, #6366f1, #4f46e5)",
+      color: "#ffffff",
       border: "none",
       cursor: "pointer",
-      fontSize: "11px",
-      fontWeight: "700",
-      padding: "5px 10px",
+      fontSize: "10.5px",
+      fontWeight: "600",
+      padding: "4px 8px",
       borderRadius: "6px",
-      marginRight: "8px",
-      marginLeft: "6px",
-      transition: "filter 0.18s, transform 0.18s",
+      transition: "all 0.18s ease",
       fontFamily: "'Inter', -apple-system, sans-serif",
       flexShrink: "0",
-      letterSpacing: "0.2px",
       whiteSpace: "nowrap",
+      height: "26px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxShadow: "0 2px 4px rgba(99, 102, 241, 0.15)"
     });
     importBtn.addEventListener("mouseenter", () => {
-      importBtn.style.filter = "brightness(0.92)";
-      importBtn.style.transform = "translateY(-1px)";
+      importBtn.style.filter = "brightness(1.08)";
+      importBtn.style.transform = "translateY(-0.5px)";
+      importBtn.style.boxShadow = "0 3px 6px rgba(99, 102, 241, 0.25)";
     });
     importBtn.addEventListener("mouseleave", () => {
       importBtn.style.filter = "brightness(1)";
@@ -1099,9 +1116,198 @@ export class YouTubeSubtitleList {
       this.handleImportSubtitle();
     });
 
+    // 下载字幕按钮
+    const downloadBtn = document.createElement("button");
+    downloadBtn.id = "theboringenglish-download-btn";
+    downloadBtn.title = "Download Subtitles";
+    downloadBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    `;
+
+    Object.assign(downloadBtn.style, {
+      background: "var(--theboringenglish-btn-bg)",
+      color: "var(--theboringenglish-text-secondary)",
+      border: "1px solid var(--theboringenglish-tab-border)",
+      cursor: "pointer",
+      width: "26px",
+      height: "26px",
+      borderRadius: "6px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transition: "all 0.18s ease",
+      padding: "0",
+      position: "relative",
+    });
+
+    downloadBtn.addEventListener("mouseenter", () => {
+      downloadBtn.style.backgroundColor = s.bgHover;
+      downloadBtn.style.color = "var(--theboringenglish-primary)";
+      downloadBtn.style.transform = "translateY(-0.5px)";
+    });
+    downloadBtn.addEventListener("mouseleave", () => {
+      downloadBtn.style.backgroundColor = "var(--theboringenglish-btn-bg)";
+      downloadBtn.style.color = "var(--theboringenglish-text-secondary)";
+      downloadBtn.style.transform = "translateY(0)";
+    });
+
+    // 创建绝对定位下拉菜单容器
+    const dropMenu = document.createElement("div");
+    dropMenu.id = "theboringenglish-download-menu";
+    Object.assign(dropMenu.style, {
+      position: "absolute",
+      top: "30px",
+      right: "0px",
+      background: "var(--theboringenglish-bg-card)",
+      border: "1px solid var(--theboringenglish-tab-border)",
+      borderRadius: "8px",
+      boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
+      display: "none",
+      flexDirection: "column",
+      padding: "4px 0",
+      zIndex: "2147483647",
+      minWidth: "165px",
+    });
+
+    const createMenuItem = (text, onClick) => {
+      const item = document.createElement("button");
+      item.textContent = text;
+      Object.assign(item.style, {
+        background: "transparent",
+        border: "none",
+        color: "var(--theboringenglish-text-secondary)",
+        padding: "6px 12px",
+        fontSize: "11px",
+        fontWeight: "500",
+        textAlign: "left",
+        cursor: "pointer",
+        width: "100%",
+        display: "block",
+        transition: "all 0.15s ease",
+        whiteSpace: "nowrap"
+      });
+      item.addEventListener("mouseenter", () => {
+        item.style.backgroundColor = "var(--theboringenglish-bg-hover)";
+        item.style.color = "var(--theboringenglish-primary)";
+      });
+      item.addEventListener("mouseleave", () => {
+        item.style.backgroundColor = "transparent";
+        item.style.color = "var(--theboringenglish-text-secondary)";
+      });
+      item.addEventListener("click", (e) => {
+        e.stopPropagation();
+        onClick();
+        dropMenu.style.display = "none";
+      });
+      return item;
+    };
+
+    // 动态国际化语言映射表
+    const LANG_MAP = {
+      zh: {
+        "zh-CN": "中文", "zh-TW": "繁体中文", "en": "英文", "ja": "日文", "ko": "韩文",
+        "es": "西班牙文", "fr": "法文", "de": "德文", "ru": "俄文", "pt": "葡萄牙文"
+      },
+      zh_TW: {
+        "zh-CN": "中文", "zh-TW": "繁體中文", "en": "英文", "ja": "日文", "ko": "韓文",
+        "es": "西班牙文", "fr": "法文", "de": "德文", "ru": "俄文", "pt": "葡萄牙文"
+      },
+      en: {
+        "zh-CN": "Chinese", "zh-TW": "Traditional Chinese", "en": "English", "ja": "Japanese", "ko": "Korean",
+        "es": "Spanish", "fr": "French", "de": "German", "ru": "Russian", "pt": "Portuguese"
+      },
+      ja: {
+        "zh-CN": "中国語", "zh-TW": "繁体中国語", "en": "英語", "ja": "日本語", "ko": "韓国語",
+        "es": "スペイン語", "fr": "フランス語", "de": "ドイツ語", "ru": "ロシア語", "pt": "ポルトガル語"
+      },
+      ko: {
+        "zh-CN": "중국어", "zh-TW": "번체 중국어", "en": "영어", "ja": "일본어", "ko": "한국어",
+        "es": "스페인어", "fr": "프랑스어", "de": "독일어", "ru": "러시아어", "pt": "포르투갈어"
+      }
+    };
+
+    const getLangLabel = (ui, target, type, format) => {
+      const map = LANG_MAP[ui] || LANG_MAP["en"];
+      const targetName = map[target] || target.split('-')[0].toUpperCase();
+      const originName = ui === "zh" || ui === "zh_TW" ? "英文" : (ui === "ja" ? "英語" : (ui === "ko" ? "영어" : "English"));
+      
+      if (type === 'origin') {
+        if (ui === "zh") return `保存 ${originName} 原文 (.${format})`;
+        if (ui === "zh_TW") return `保存 ${originName} 原文 (.${format})`;
+        if (ui === "ja") return `${originName} 原文を保存 (.${format})`;
+        if (ui === "ko") return `${originName} 원문 저장 (.${format})`;
+        return `Save ${originName} Original (.${format})`;
+      } else if (type === 'translation') {
+        if (ui === "zh") return `保存 ${targetName} 译文 (.${format})`;
+        if (ui === "zh_TW") return `保存 ${targetName} 譯文 (.${format})`;
+        if (ui === "ja") return `${targetName} 翻訳を保存 (.${format})`;
+        if (ui === "ko") return `${targetName} 번역 저장 (.${format})`;
+        return `Save ${targetName} Translation (.${format})`;
+      } else {
+        if (ui === "zh") return `保存双语对照 (.${format})`;
+        if (ui === "zh_TW") return `保存雙語對照 (.${format})`;
+        if (ui === "ja") return `バイリンガル字幕を保存 (.${format})`;
+        if (ui === "ko") return `이중언어 자막 저장 (.${format})`;
+        return `Save Bilingual (.${format})`;
+      }
+    };
+
+    // 动态在加载配置后，渲染多语言字幕下载项，与插件语言完全同步
+    chrome.storage.local.get(["setting"], (result) => {
+      const uiLang = result?.setting?.uiLang || "en";
+      const toLang = result?.setting?.subtitleSetting?.toLang || result?.setting?.toLang || "zh-CN";
+      
+      // 更新一键同步文本
+      importBtn.textContent = IMPORT_SHORT_LABELS[uiLang] || "Sync to Web";
+      
+      // 清空并重新构建多语言菜单
+      dropMenu.innerHTML = "";
+      
+      const labelOriginSrt = getLangLabel(uiLang, toLang, 'origin', 'srt');
+      const labelOriginTxt = getLangLabel(uiLang, toLang, 'origin', 'txt');
+      const labelTransSrt = getLangLabel(uiLang, toLang, 'translation', 'srt');
+      const labelTransTxt = getLangLabel(uiLang, toLang, 'translation', 'txt');
+      const labelBilingual = getLangLabel(uiLang, toLang, 'bilingual', 'srt');
+      
+      dropMenu.appendChild(createMenuItem(labelOriginSrt, () => this.provider.downloadCustomSubtitle("origin", "srt")));
+      dropMenu.appendChild(createMenuItem(labelOriginTxt, () => this.provider.downloadCustomSubtitle("origin", "txt")));
+      dropMenu.appendChild(createMenuItem(labelTransSrt, () => this.provider.downloadCustomSubtitle("translation", "srt")));
+      dropMenu.appendChild(createMenuItem(labelTransTxt, () => this.provider.downloadCustomSubtitle("translation", "txt")));
+      dropMenu.appendChild(createMenuItem(labelBilingual, () => this.provider.downloadCustomSubtitle("bilingual", "srt")));
+    });
+
+    // 为了让绝对定位菜单在 tabHeader 内部有正确的锚点，我们需要让 downloadBtnContainer 包裹 downloadBtn
+    const downloadContainer = document.createElement("div");
+    Object.assign(downloadContainer.style, {
+      position: "relative",
+      display: "inline-block",
+    });
+    downloadContainer.appendChild(downloadBtn);
+    downloadContainer.appendChild(dropMenu);
+
+    // 点击下载按钮切换显示状态
+    downloadBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const show = dropMenu.style.display === "flex";
+      dropMenu.style.display = show ? "none" : "flex";
+    });
+
+    // 点击其他地方收起菜单
+    document.addEventListener("click", () => {
+      dropMenu.style.display = "none";
+    });
+
+    // 组合进 toolBar 容器
+    toolBar.appendChild(importBtn);
+    toolBar.appendChild(downloadContainer);
+    toolBar.appendChild(themeToggle);
+
     tabHeader.appendChild(tabButtons);
-    tabHeader.appendChild(importBtn);
-    tabHeader.appendChild(themeToggle);
+    tabHeader.appendChild(toolBar);
 
     // ===== Content Area =====
     const tabContent = document.createElement("div");
@@ -1187,8 +1393,8 @@ export class YouTubeSubtitleList {
       background: "transparent",
       fontSize: "14px",
       fontWeight: "600",
-      color: isActive ? s.warmGold : s.textSecondary,
-      borderBottom: `2px solid ${isActive ? s.warmGold : 'transparent'}`,
+      color: isActive ? s.primary : s.textSecondary,
+      borderBottom: `2px solid ${isActive ? s.primary : 'transparent'}`,
       marginBottom: "-1px",
       transition: "all 0.18s ease",
       fontFamily: "'Inter', -apple-system, sans-serif",

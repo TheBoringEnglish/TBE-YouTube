@@ -500,6 +500,20 @@ export const I18N = {
     ja: `英語の字幕（公式または自動生成）が検出されなかったため、インポートできません。`,
     ko: `영어 자막(공식 또는 자동 생성)이 감지되지 않아 가져올 수 없습니다.`,
   },
+  import_fail_token: {
+    zh: `导入失败：您的同步 Token 已失效或已过期。\n\n请点击浏览器右上角的 TBE 插件图标，在‘联动’(Sync) 选项卡中重新连接您的 TheBoringEnglish 账户（若主站已登出，请先在主站重新登录）。`,
+    en: `Import failed: Your sync Token has expired or is invalid.\n\nPlease click the TBE extension icon in the top right, go to the "Sync" tab, and reconnect your TheBoringEnglish account (log in to the main web site first if you have logged out).`,
+    zh_TW: `匯入失敗：您的同步 Token 已失效或已過期。\n\n請點擊瀏覽器右上角的 TBE 插件圖標，在‘聯動’(Sync) 選項卡中重新連接您的 TheBoringEnglish 帳戶（若主站已登出，請先在主站重新登入）。`,
+    ja: `インポート失敗：同期トークンが無効または期限切れです。\n\nブラウザ右上のTBE拡張機能アイコンをクリックし、「同期」(Sync)タブでTheBoringEnglishアカウントを再接続してください（ログアウトしている場合は、まずメインサイトにログインしてください）。`,
+    ko: `가져오기 실패: 동기화 토큰이 만료되었거나 유효하지 않습니다.\n\n브라우저 우측 상단의 TBE 확장 프로그램 아이콘을 클릭하고 '동기화'(Sync) 탭에서 TheBoringEnglish 계정을 다시 연결하십시오 (로그아웃된 경우 메인 사이트에 먼저 로그인하십시오).`,
+  },
+  import_fail_network: {
+    zh: `导入失败：无法连接到 TBE 主站服务器。\n\n请确认您的 TheBoringEnglish 后端服务是否已正常启动（通常是 http://localhost:8000），并检查插件“联动”配置中的“服务器地址”是否正确。`,
+    en: `Import failed: Unable to connect to the TBE server.\n\nPlease ensure that your TheBoringEnglish backend service is running (usually http://localhost:8000), and check if the "Server URL" in the extension "Sync" tab is correct.`,
+    zh_TW: `匯入失敗：無法連接到 TBE 主站服務器。\n\n請確認您的 TheBoringEnglish 後端服務是否已正常啟動（通常是 http://localhost:8000），並檢查插件“聯動”配置中的“服務器地址”是否正確。`,
+    ja: `インポート失敗：TBEサーバーに接続できません。\n\nTheBoringEnglishバックエンドサービスが正常に起動しているか（通常は http://localhost:8000）、および拡張機能の「同期」設定内の「サーバーURL」が正しいか確認してください。`,
+    ko: `가져오기 실패: TBE 서버에 연결할 수 없습니다.\n\nTheBoringEnglish 백엔드 서비스가 정상적으로 실행 중인지 (보통 http://localhost:8000), 그리고 확장 프로그램 '동기화' 설정의 '서버 URL'이 올바른지 확인하십시오.`,
+  },
   import_asr_confirm: {
     zh: `此视频当前使用的是自动生成的字幕。自动生成的字幕在导入后会经过 AI 语义校对与断句，可能会和视频时间轴无法完美对应（存在几秒的偏差或合并）。是否确认继续导入？`,
     en: `This video is currently using auto-generated subtitles. The imported subtitles will be polished and segmented by AI, which might not align perfectly with the video timeline (there may be a few seconds of offset or merged sentences). Do you want to continue importing?`,
