@@ -328,6 +328,84 @@ Input:
 {"targetLanguage":"<lang>","title":"<context>","description":"<context>","segments":[{"id":1,"text":"..."}],"glossary":{"sourceTerm":"targetTerm"},"tone":"<formal|casual>"}
 
 Output:
+{"translations":[{"id":1,"text":"...","sourceLanguage":"<detected>","vocab":[{"word":"...","phonetic":"...","definition":"...","examples":[{"eng":"...","chs":"..."}]}]}]}
+
+Rules:
+1.  Use title/description for context only; do not output them.
+2.  Keep id, order, and count of segments.
+3.  Preserve whitespace, HTML entities, and all HTML-like tags (e.g., <i1>, <a1>). Translate inner text only.
+4.  Highest priority: Follow 'glossary'. Use value for translation; if value is "", keep the key.
+5.  Do not translate: content in <code>, <pre>, text enclosed in backticks, or placeholders like {1}, {{1}}, [1], [[1]].
+6.  Apply the specified tone to the translation.
+7.  Identify key vocabulary (important/difficult words or multi-word phrases; excluding proper nouns like person names, location names, or brand names) in the translation and put them in 'vocab' array. Each item has 'word', 'phonetic', 'definition', and 'examples' (with 'eng' and 'chs' keys). The first example MUST be the current segment's original text and its translation.
+8.  Detect sourceLanguage for each segment.
+9.  Return empty or unchanged inputs as is.
+
+Example:
+Input: {"targetLanguage":"zh-CN","segments":[{"id":1,"text":"A <b>React</b> component."}],"glossary":{"component":"组件","React":""}}
+Output: {"translations":[{"id":1,"text":"一个<b>React</b>组件","sourceLanguage":"en","vocab":[]}]}
+
+Fail-safe: On any error, return {"translations":[]}.`;
+
+// const defaultSubtitlePrompt = \`Goal: Convert raw subtitle event JSON into a clean, sentence-based JSON array.
+
+// Output (valid JSON array, output ONLY this array):
+// [{
+//   "text": "string",        // Full sentence with correct punctuation
+//   "translation": "string", // Translation in \${INPUT_PLACE_TO}
+//   "start": int,            // Start time (ms)
+//   "end": int,              // End time (ms)
+// }]
+
+// Guidelines:
+// 1. **Segmentation**: Merge sequential 'utf8' strings from 'segs' into full sentences, merging groups logically.
+// 2. **Punctuation**: Ensure proper sentence-final punctuation (., ?, !); add if missing.
+// 3. **Translation**: Translate 'text' into \${INPUT_PLACE_TO}, place result in 'translation'.
+// 4. **Special Cases**: '[Music]' (and similar cues) are standalone entries. Translate appropriately (e.g., '[音乐]', '[Musique]').
+// \`;
+
+export const defaultSubtitlePrompt = `You are an expert AI for subtitle generation. Convert a JSON array of word-level timestamps into a bilingual VTT file.
+
+**Workflow:**
+1. Merge \`text\` fields into complete sentences; ignore empty text.
+2. Split long sentences into smaller, manageable subtitle cues (one sentence per cue).
+3. Translate each cue into ${INPUT_PLACE_TO}.
+4. Identify key vocabulary (important/difficult words or multi-word phrases; excluding proper nouns like person names, location names, or brand names) in each cue, and provide phonetic symbols, target language definitions, and a contextual example sentence.
+5. Format as VTT:
+   - Start with \`WEBVTT\`.
+   - Each cue format:
+     Line 1: timestamps (\`start --> end\` in milliseconds)
+     Line 2: original text
+     Line 3: translated text
+     Line 4: Words: [{"word":"...", "phonetic":"...", "definition":"...", "examples":[{"eng":"...", "chs":"..."}]}]
+     (If no key vocabulary, output Words: [])
+     Note: The first example in the examples list MUST be the current cue's original text and its translation.
+   - Keep non-speech text (e.g., \`[Music]\`) untranslated.
+   - Separate cues with a blank line.
+
+**Output:** Only the pure VTT content.
+
+**Example:**
+\`\`\`vtt
+WEBVTT
+
+1000 --> 3500
+Hello world!
+你好，世界！
+Words: [{"word":"world","phonetic":"wɜːld","definition":"世界","examples":[{"eng":"Hello world!","chs":"你好，世界！"}]}]
+
+4000 --> 6000
+Good morning.
+早上好.
+Words: []
+\`\`\``;
+
+export const defaultSystemPromptNoVocab = `Act as a translation API. Output a single raw JSON object only. No extra text or fences.
+
+Input:
+{"targetLanguage":"<lang>","title":"<context>","description":"<context>","segments":[{"id":1,"text":"..."}],"glossary":{"sourceTerm":"targetTerm"},"tone":"<formal|casual>"}
+
+Output:
 {"translations":[{"id":1,"text":"...","sourceLanguage":"<detected>"}]}
 
 Rules:
@@ -346,32 +424,18 @@ Output: {"translations":[{"id":1,"text":"一个<b>React</b>组件","sourceLangua
 
 Fail-safe: On any error, return {"translations":[]}.`;
 
-// const defaultSubtitlePrompt = `Goal: Convert raw subtitle event JSON into a clean, sentence-based JSON array.
-
-// Output (valid JSON array, output ONLY this array):
-// [{
-//   "text": "string",        // Full sentence with correct punctuation
-//   "translation": "string", // Translation in ${INPUT_PLACE_TO}
-//   "start": int,            // Start time (ms)
-//   "end": int,              // End time (ms)
-// }]
-
-// Guidelines:
-// 1. **Segmentation**: Merge sequential 'utf8' strings from 'segs' into full sentences, merging groups logically.
-// 2. **Punctuation**: Ensure proper sentence-final punctuation (., ?, !); add if missing.
-// 3. **Translation**: Translate 'text' into ${INPUT_PLACE_TO}, place result in 'translation'.
-// 4. **Special Cases**: '[Music]' (and similar cues) are standalone entries. Translate appropriately (e.g., '[音乐]', '[Musique]').
-// `;
-
-export const defaultSubtitlePrompt = `You are an expert AI for subtitle generation. Convert a JSON array of word-level timestamps into a bilingual VTT file.
+export const defaultSubtitlePromptNoVocab = `You are an expert AI for subtitle generation. Convert a JSON array of word-level timestamps into a bilingual VTT file.
 
 **Workflow:**
 1. Merge \`text\` fields into complete sentences; ignore empty text.
 2. Split long sentences into smaller, manageable subtitle cues (one sentence per cue).
-3. Translate each cue into ${INPUT_PLACE_TO}.
+3. Translate each cue into \${INPUT_PLACE_TO}.
 4. Format as VTT:
    - Start with \`WEBVTT\`.
-   - Each cue: timestamps (\`start --> end\` in milliseconds), original text, translated text.
+   - Each cue format:
+     Line 1: timestamps (\`start --> end\` in milliseconds)
+     Line 2: original text
+     Line 3: translated text
    - Keep non-speech text (e.g., \`[Music]\`) untranslated.
    - Separate cues with a blank line.
 
@@ -387,7 +451,7 @@ Hello world!
 
 4000 --> 6000
 Good morning.
-早上好。
+早上好.
 \`\`\``;
 
 const defaultRequestHook = `async (args, { url, body, headers, userMsg, method } = {}) => {

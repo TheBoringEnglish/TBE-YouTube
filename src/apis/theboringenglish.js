@@ -13,6 +13,10 @@ function getApiUrl(serverUrl) {
     url = url.replace("localhost:6400", "localhost:6401");
   } else if (url.includes("127.0.0.1:6400")) {
     url = url.replace("127.0.0.1:6400", "127.0.0.1:6401");
+  } else if (url.includes("localhost:6500")) {
+    url = url.replace("localhost:6500", "localhost:6501");
+  } else if (url.includes("127.0.0.1:6500")) {
+    url = url.replace("127.0.0.1:6500", "127.0.0.1:6501");
   }
   // 核心：自动追加 /api/v1 前缀（如果尚未包含）
   if (!url.endsWith("/api/v1") && !url.includes("/api/v1/")) {

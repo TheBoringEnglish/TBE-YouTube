@@ -56,8 +56,16 @@ Based on the Manifest V3 standard, the extension utilizes native Main World cont
 
 ## 📦 Download & Installation
 
-### 📥 Option 1: Direct Installation (Recommended for regular users)
+### 📥 Option 1: Install from Chrome Web Store (Recommended)
 
+You can install the extension directly from the Chrome Web Store:
+👉 **[Chrome Web Store - TheBoringEnglish](https://chromewebstore.google.com/detail/theboringenglish/mdofepbdjfkkpogeemdlgnhadgbigdjh)**
+
+---
+
+### 📥 Option 2: Direct Installation (Offline package)
+
+If you cannot access the Chrome Web Store, you can manually install the offline package:
 1. Go to the GitHub [Releases](https://github.com/TheBoringEnglish/TBE-YouTube/releases) page and download the latest `.zip` package (e.g., `TBE-YouTube-v1.0.0.zip`).
 2. Unzip the downloaded archive to any folder on your local computer.
 3. Open Google Chrome and navigate to `chrome://extensions/` in the address bar.

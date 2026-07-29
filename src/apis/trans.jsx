@@ -28,6 +28,8 @@ import {
   DEFAULT_USER_AGENT,
   defaultSystemPrompt,
   defaultSubtitlePrompt,
+  defaultSystemPromptNoVocab,
+  defaultSubtitlePromptNoVocab,
   defaultNobatchPrompt,
   defaultNobatchUserPrompt,
   INPUT_PLACE_TONE,
@@ -131,6 +133,19 @@ const parseAIRes = (raw, useBatchFetch = true) => {
   }
 
   if (!useBatchFetch) {
+    try {
+      const jsonString = extractJson(raw);
+      if (jsonString) {
+        const data = JSON.parse(jsonString);
+        if (data.translations && data.translations[0]) {
+          const item = data.translations[0];
+          return [[item?.text ?? "", item?.sourceLanguage ?? "", item?.vocab ?? []]];
+        }
+        if (data.text) {
+          return [[data.text, data.sourceLanguage || "", data.vocab || []]];
+        }
+      }
+    } catch (e) {}
     return [[raw]];
   }
 
@@ -144,6 +159,7 @@ const parseAIRes = (raw, useBatchFetch = true) => {
       return data.translations.map((item) => [
         item?.text ?? "",
         item?.sourceLanguage ?? "",
+        item?.vocab ?? [],
       ]);
     }
   } catch (err) {
@@ -914,6 +930,13 @@ export const handleTranslate = async (
     }
   }
 
+  let systemPrompt = apiSetting.systemPrompt || defaultSystemPrompt;
+  if (apiSetting.aiVocabEnabled === false) {
+    if (systemPrompt === defaultSystemPrompt) {
+      systemPrompt = defaultSystemPromptNoVocab;
+    }
+  }
+
   const [input, init, userMsg] = await genTransReq({
     texts,
     from,
@@ -924,6 +947,7 @@ export const handleTranslate = async (
     docInfo,
     glossary,
     ...apiSetting,
+    systemPrompt,
   });
 
   try {
@@ -1023,13 +1047,20 @@ export const handleSubtitle = async ({ events, from, to, apiSetting }) => {
     (e.segs || []).map((s) => s.utf8).join("")
   );
 
+  let subtitlePrompt = apiSetting.subtitlePrompt || defaultSubtitlePrompt;
+  if (apiSetting.aiVocabEnabled === false) {
+    if (subtitlePrompt === defaultSubtitlePrompt) {
+      subtitlePrompt = defaultSubtitlePromptNoVocab;
+    }
+  }
+
   const [input, init] = await genTransReq({
     ...apiSetting,
     events,
     texts,
     from,
     to,
-    systemPrompt: apiSetting.subtitlePrompt,
+    systemPrompt: subtitlePrompt,
   });
 
   const res = await fetchData(input, init, {

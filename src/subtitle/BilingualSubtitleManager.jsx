@@ -18,6 +18,19 @@ const addWordHoverStyles = () => {
       text-decoration-thickness: 2px;
     }
     
+    .theboringenglish-key-vocab {
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-color: #ff9100;
+      text-decoration-thickness: 2px;
+      font-weight: bold;
+      transition: background-color 0.15s;
+    }
+
+    .theboringenglish-key-vocab:hover {
+      background-color: rgba(255, 145, 0, 0.15);
+    }
+    
     .theboringenglish-word-tooltip {
       position: fixed;
       background: rgba(0, 0, 0, 0.95);
@@ -380,10 +393,47 @@ export class BilingualSubtitleManager {
     }
 
     document.body.appendChild(this.#tooltipEl);
-
-    const i18n = newI18n(this.#setting.uiLang || "en");
-
+    
     try {
+      const isKeyVocab = this.#activeWordEl?.dataset.isKeyVocab === "true";
+      if (isKeyVocab) {
+        const phonetic = this.#activeWordEl.dataset.phonetic || "";
+        const definition = this.#activeWordEl.dataset.definition || "";
+        let examples = [];
+        try {
+          examples = JSON.parse(this.#activeWordEl.dataset.examples || "[]");
+        } catch (e) {}
+
+        const currentTimeMs = this.#getCurrentSubtitleStartTime();
+        const event = new CustomEvent('theboringenglish-add-word', { 
+          detail: { 
+            word,
+            phonetic,
+            definition,
+            examples,
+            timestamp: currentTimeMs
+          } 
+        });
+        document.dispatchEvent(event);
+
+        const dictResult = {
+          word,
+          aus: phonetic ? [{ key: "US", phonetic }] : [],
+          trs: [{ pos: "", def: definition }],
+          sentences: examples.map(ex => ({ eng: ex.eng || ex.text || "", trans: ex.chs || ex.translation || ex.trans || "" }))
+        };
+
+        if (this.#tooltipEl) {
+          this.#tooltipEl.replaceChildren(...this.#buildTooltipDOM(word, dictResult));
+        }
+        return;
+      }
+
+      // 获取当前字幕和原句
+      const subtitle = this.#formattedSubtitles[this.#currentSubtitleIndex];
+      const currentSentence = subtitle ? subtitle.text : "";
+      const currentTranslation = subtitle ? subtitle.translation : "";
+
       // 获取单词翻译
       let dictResult = await apiMicrosoftDict(word, this.#setting.toLang);
       
@@ -439,6 +489,17 @@ export class BilingualSubtitleManager {
           }));
       }
 
+      // 将当前字幕原文句作为第一条例句加入
+      if (currentSentence) {
+        const hasDup = examples.some(ex => (ex.eng || "").toLowerCase() === currentSentence.toLowerCase());
+        if (!hasDup) {
+          examples.unshift({
+            eng: currentSentence,
+            trans: currentTranslation || ""
+          });
+        }
+      }
+ 
       // 获取当前字幕的时间戳（使用重新分段后的时间）
       const currentTimeMs = this.#getCurrentSubtitleStartTime();
       
@@ -454,46 +515,10 @@ export class BilingualSubtitleManager {
       });
       document.dispatchEvent(event);
 
-      if (dictResult && (dictResult.trs || dictResult.aus || dictResult.sentences)) {
-        let content = `<div class="theboringenglish-word-tooltip-header">
-          <span>${word}</span>
-          <button class="theboringenglish-word-tooltip-close" onclick="this.closest('.theboringenglish-word-tooltip').remove()">×</button>
-        </div>`;
-
-        // 显示音标
-        if (dictResult.aus && dictResult.aus.length > 0) {
-          content += '<div>';
-          dictResult.aus.forEach((au) => {
-            if (au.phonetic) {
-              content += `<span class="theboringenglish-word-phonetic">${au.phonetic}</span>`;
-            }
-          });
-          content += '</div>';
-        }
-
-        // 显示释义
-        if (dictResult.trs) {
-          dictResult.trs.slice(0, 3).forEach((tr) => {
-            content += `<div class="theboringenglish-word-definition">${tr.pos ? '<span class="theboringenglish-word-pos">' + tr.pos + "</span> " : ""}${tr.def}</div>`;
-          });
-        }
-
-        // 显示例句
-        if (dictResult.sentences && dictResult.sentences.length > 0) {
-          content += `<div class="theboringenglish-word-example">
-            <div class="theboringenglish-word-example-title">${i18n("example_sentences")}</div>`;
-          dictResult.sentences.slice(0, 2).forEach((sentence) => {
-            content += `<div class="theboringenglish-word-example-sentence">${sentence.eng}</div>
-              <div class="theboringenglish-word-example-translation">${sentence.trans}</div>`;
-          });
-          content += '</div>';
-        }
-
-        if (this.#tooltipEl) {
+      if (this.#tooltipEl) {
+        if (dictResult && (dictResult.trs || dictResult.aus || dictResult.sentences)) {
           this.#tooltipEl.replaceChildren(...this.#buildTooltipDOM(word, dictResult));
-        }
-      } else {
-        if (this.#tooltipEl) {
+        } else {
           this.#tooltipEl.replaceChildren(...this.#buildTooltipDOM(word, null));
         }
       }
@@ -769,7 +794,8 @@ export class BilingualSubtitleManager {
       // 创建带有单词标记的字幕内容（使用 DOM API，避免 TrustedHTML 违规）
       const p1 = document.createElement("p");
       p1.style.cssText = this.#setting.originStyle;
-      this.#appendWordsWithSpans(p1, subtitle.text);
+      const useVocab = this.#setting.aiVocabEnabled !== false ? subtitle.vocab : [];
+      this.#appendWordsWithSpans(p1, subtitle.text, useVocab);
 
       const p2 = document.createElement("p");
       p2.style.cssText = this.#setting.translationStyle;
@@ -787,13 +813,53 @@ export class BilingualSubtitleManager {
     }
   }
 
-  /**
-   * 将文本按单词分割，并以 span 元素的形式附加到容器中（纯 DOM 操作，无 innerHTML）
-   * @param {HTMLElement} container - 目标容器
-   * @param {string} text - 字幕原文
-   */
-  #appendWordsWithSpans(container, text) {
+  #appendWordsWithSpans(container, text, vocabList = []) {
     if (!text) return;
+    
+    if (!vocabList || vocabList.length === 0) {
+      this.#appendDefaultWords(container, text);
+      return;
+    }
+
+    const sortedVocab = [...vocabList].sort((a, b) => b.word.length - a.word.length);
+    const escapedTerms = sortedVocab.map(item => {
+      const escaped = item.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      return `\\b${escaped}\\b`;
+    });
+
+    const masterRegex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+    let lastIndex = 0;
+    let match;
+
+    while ((match = masterRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        this.#appendDefaultWords(container, text.slice(lastIndex, match.index));
+      }
+
+      const matchedText = match[1];
+      const vocabItem = sortedVocab.find(item => item.word.toLowerCase() === matchedText.toLowerCase());
+
+      const span = document.createElement("span");
+      span.className = "theboringenglish-subtitle-word theboringenglish-key-vocab";
+      span.dataset.word = matchedText;
+      if (vocabItem) {
+        span.dataset.isKeyVocab = "true";
+        span.dataset.definition = vocabItem.definition || "";
+        span.dataset.phonetic = vocabItem.phonetic || "";
+        span.dataset.examples = JSON.stringify(vocabItem.examples || []);
+      }
+      span.textContent = matchedText;
+      container.appendChild(span);
+
+      lastIndex = masterRegex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      this.#appendDefaultWords(container, text.slice(lastIndex));
+    }
+  }
+
+  #appendDefaultWords(container, text) {
     const regex = /\b([a-zA-Z]+(?:'[a-zA-Z]+)?)\b/g;
     let lastIndex = 0;
     let match;
@@ -865,6 +931,7 @@ export class BilingualSubtitleManager {
         throw new Error("Empty translation result");
       }
       subtitle.translation = trText;
+      subtitle.vocab = res?.vocab || [];
       subtitle.retryable = false; // 成功后清除重试标记
       subtitle.retryCount = 0; // 重置重试次数
     } catch (error) {

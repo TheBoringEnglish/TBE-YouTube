@@ -1,5 +1,7 @@
 import { logger } from "../libs/log";
 import { syncWordToWeb, importSubtitleToWeb } from "../apis/theboringenglish";
+import { apiMicrosoftDict, apiTranslate } from "../apis/index";
+import { newI18n } from "../config/i18n";
 
 /**
  * YouTube 字幕列表管理器
@@ -29,6 +31,11 @@ export class YouTubeSubtitleList {
     this._theme = this._detectTheme();
 
     this.activeTab = "subtitles";
+
+    this.hoverTimeout = null;
+    this.tooltipEl = null;
+    this.isHoveringTooltip = false;
+    this.activeWordEl = null;
 
     this.handleWordAdded = this.handleWordAdded.bind(this);
     document.addEventListener("theboringenglish-add-word", this.handleWordAdded);
@@ -390,6 +397,31 @@ export class YouTubeSubtitleList {
         });
         wordLine.appendChild(tsBtn);
       }
+      // 删除按钮
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "×";
+      deleteBtn.title = "Remove from vocabulary";
+      Object.assign(deleteBtn.style, {
+        marginLeft: "auto",
+        background: "none",
+        border: "none",
+        color: s.textTime || "#888",
+        cursor: "pointer",
+        fontSize: "18px",
+        padding: "0 4px",
+        lineHeight: "1",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "color 0.15s",
+      });
+      deleteBtn.addEventListener("mouseenter", () => { deleteBtn.style.color = "#ff4444"; });
+      deleteBtn.addEventListener("mouseleave", () => { deleteBtn.style.color = s.textTime || "#888"; });
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.removeWord(item.word);
+      });
+      wordLine.appendChild(deleteBtn);
 
       card.appendChild(wordLine);
 
@@ -598,6 +630,18 @@ export class YouTubeSubtitleList {
       const prev = arr[idx - 1];
       return !(sub.start === prev.start && sub.text === prev.text);
     });
+
+    // 自动添加 AI 提取的重点词汇到词汇表中
+    if (this.provider?.setting?.aiVocabEnabled !== false && bilingualData && bilingualData.length > 0) {
+      bilingualData.forEach(sub => {
+        if (Array.isArray(sub.vocab) && sub.vocab.length > 0) {
+          sub.vocab.forEach(item => {
+            this.addWord(item.word, item.phonetic, item.definition, item.examples || [], sub.start);
+          });
+        }
+      });
+    }
+
     if (this.subtitleListEl && this.subtitleListUl) {
       this.renderSubtitleItems();
     } else {
@@ -652,7 +696,8 @@ export class YouTubeSubtitleList {
 
         const textSpan = document.createElement("div");
         textSpan.className = "theboringenglish-youtube-original";
-        textSpan.textContent = sub.text || "";
+        const useVocab = this.provider?.setting?.aiVocabEnabled !== false ? (sub.vocab || []) : [];
+        this._appendWordsWithSpans(textSpan, sub.text || "", useVocab);
         Object.assign(textSpan.style, {
           color: s.textEn,
           fontSize: "16.5px",
@@ -739,7 +784,8 @@ export class YouTubeSubtitleList {
 
         const textSpan = document.createElement("div");
         textSpan.className = "theboringenglish-youtube-original";
-        textSpan.textContent = segs.map((k) => k.utf8 || "").join("").replace(/\s+/g, " ").trim();
+        const originalText = segs.map((k) => k.utf8 || "").join("").replace(/\s+/g, " ").trim();
+        this._appendWordsWithSpans(textSpan, originalText, []);
         Object.assign(textSpan.style, {
           color: s.textEn,
           fontSize: "16.5px",
@@ -1540,6 +1586,11 @@ export class YouTubeSubtitleList {
     this.container.addEventListener("mouseleave", () => this.turnOnAutoSub());
     this.videoEl.addEventListener("ended", () => this.turnOffAutoSub());
     this._observeTheme();
+
+    if (this.subtitleListEl) {
+      this.subtitleListEl.addEventListener("mouseover", this.handleWordHover.bind(this), true);
+      this.subtitleListEl.addEventListener("mouseout", this.handleWordHoverOut.bind(this), true);
+    }
   }
 
   turnOnAutoSub() {
@@ -1665,5 +1716,411 @@ export class YouTubeSubtitleList {
       const el = document.querySelector('h1 yt-formatted-string');
       return el ? el.textContent : 'YouTube Video';
     } catch { return 'YouTube Video'; }
+  }
+
+  removeWord(word) {
+    const index = this.vocabulary.findIndex(item => item.word === word);
+    if (index !== -1) {
+      this.vocabulary.splice(index, 1);
+      this._renderVocabulary();
+    }
+  }
+
+  _appendWordsWithSpans(container, text, vocabList = []) {
+    if (!text) return;
+    
+    if (!vocabList || vocabList.length === 0) {
+      this._appendDefaultWords(container, text);
+      return;
+    }
+
+    const sortedVocab = [...vocabList].sort((a, b) => b.word.length - a.word.length);
+    const escapedTerms = sortedVocab.map(item => {
+      const escaped = item.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      return `\\b${escaped}\\b`;
+    });
+
+    const masterRegex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+    let lastIndex = 0;
+    let match;
+
+    while ((match = masterRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        this._appendDefaultWords(container, text.slice(lastIndex, match.index));
+      }
+
+      const matchedText = match[1];
+      const vocabItem = sortedVocab.find(item => item.word.toLowerCase() === matchedText.toLowerCase());
+
+      const span = document.createElement("span");
+      span.className = "theboringenglish-subtitle-word theboringenglish-key-vocab";
+      span.dataset.word = matchedText;
+      if (vocabItem) {
+        span.dataset.isKeyVocab = "true";
+        span.dataset.definition = vocabItem.definition || "";
+        span.dataset.phonetic = vocabItem.phonetic || "";
+        span.dataset.examples = JSON.stringify(vocabItem.examples || []);
+      }
+      span.textContent = matchedText;
+      container.appendChild(span);
+
+      lastIndex = masterRegex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      this._appendDefaultWords(container, text.slice(lastIndex));
+    }
+  }
+
+  _appendDefaultWords(container, text) {
+    const regex = /\b([a-zA-Z]+(?:'[a-zA-Z]+)?)\b/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        container.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const span = document.createElement("span");
+      span.className = "theboringenglish-subtitle-word";
+      span.dataset.word = match[1];
+      span.textContent = match[1];
+      container.appendChild(span);
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+      container.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+  }
+
+  handleWordHover(event) {
+    const target = event.target;
+    if (target.classList.contains("theboringenglish-subtitle-word")) {
+      if (this.activeWordEl && this.activeWordEl !== target) {
+        this.activeWordEl.classList.remove("theboringenglish-word-hover");
+      }
+      this.activeWordEl = target;
+
+      if (this.hoverTimeout) {
+        clearTimeout(this.hoverTimeout);
+        this.hoverTimeout = null;
+      }
+
+      target.classList.add("theboringenglish-word-hover");
+
+      if (this.videoEl && !this.videoEl.paused) {
+        this.videoEl.pause();
+      }
+
+      this.hoverTimeout = setTimeout(() => {
+        this._showWordTooltip(
+          target.dataset.word,
+          event.clientX,
+          event.clientY
+        );
+      }, 300);
+    }
+  }
+
+  handleWordHoverOut(event) {
+    const target = event.target;
+    if (target.classList.contains("theboringenglish-subtitle-word")) {
+      if (this.hoverTimeout) {
+        clearTimeout(this.hoverTimeout);
+        this.hoverTimeout = null;
+      }
+
+      this.hoverTimeout = setTimeout(() => {
+        if (!this.isHoveringTooltip) {
+          target.classList.remove("theboringenglish-word-hover");
+          this.activeWordEl = null;
+          this._hideWordTooltip();
+          if (this.videoEl && this.videoEl.paused) {
+            this.videoEl.play();
+          }
+        }
+      }, 300);
+    }
+  }
+
+  async _showWordTooltip(word, x, y) {
+    if (this.tooltipEl) {
+      this.tooltipEl.remove();
+    }
+
+    this.tooltipEl = document.createElement("div");
+    this.tooltipEl.className = "theboringenglish-word-tooltip";
+    
+    this.tooltipEl.onmouseenter = () => {
+      this.isHoveringTooltip = true;
+    };
+    this.tooltipEl.onmouseleave = () => {
+      this.isHoveringTooltip = false;
+      this._hideWordTooltip();
+      if (this.activeWordEl) {
+        this.activeWordEl.classList.remove("theboringenglish-word-hover");
+        this.activeWordEl = null;
+      }
+      if (this.videoEl && this.videoEl.paused) {
+        this.videoEl.play();
+      }
+    };
+
+    const loadingDiv = document.createElement("div");
+    loadingDiv.className = "theboringenglish-word-loading";
+    loadingDiv.textContent = "Looking up...";
+    this.tooltipEl.replaceChildren(loadingDiv);
+
+    // 将提示框定位在侧边栏高亮词旁边 (absolute定位)
+    const rect = this.activeWordEl.getBoundingClientRect();
+    const tooltipWidth = 320;
+    
+    let left = rect.left - tooltipWidth - 10;
+    if (left < 10) {
+      left = rect.right + 10;
+    }
+    const top = Math.max(10, rect.top + window.scrollY - 50);
+    
+    Object.assign(this.tooltipEl.style, {
+      position: "absolute",
+      left: left + "px",
+      top: top + "px",
+      width: tooltipWidth + "px",
+      zIndex: "2147483647",
+      maxHeight: "450px",
+      overflow: "auto"
+    });
+
+    document.body.appendChild(this.tooltipEl);
+
+    try {
+      const isKeyVocab = this.activeWordEl?.dataset.isKeyVocab === "true";
+      if (isKeyVocab) {
+        const phonetic = this.activeWordEl.dataset.phonetic || "";
+        const definition = this.activeWordEl.dataset.definition || "";
+        let examples = [];
+        try {
+          examples = JSON.parse(this.activeWordEl.dataset.examples || "[]");
+        } catch (e) {}
+
+        const currentTimeMs = this.videoEl.currentTime * 1000;
+        const event = new CustomEvent('theboringenglish-add-word', { 
+          detail: { 
+            word,
+            phonetic,
+            definition,
+            examples,
+            timestamp: currentTimeMs
+          } 
+        });
+        document.dispatchEvent(event);
+
+        const dictResult = {
+          word,
+          aus: phonetic ? [{ key: "US", phonetic }] : [],
+          trs: [{ pos: "", def: definition }],
+          sentences: examples.map(ex => ({ eng: ex.eng || ex.text || "", trans: ex.chs || ex.translation || ex.trans || "" }))
+        };
+
+        if (this.tooltipEl) {
+          this.tooltipEl.replaceChildren(...this._buildTooltipDOM(word, dictResult));
+        }
+        return;
+      }
+
+      // 获取当前滚动的字幕句作为上下文
+      const sentenceContext = this._getCurrentSubtitleSentence();
+
+      let dictResult = await apiMicrosoftDict(word, this.provider?.setting?.toLang || "zh-CN");
+      
+      let phonetic = "";
+      if (dictResult && dictResult.aus) {
+        const usPhonetic = dictResult.aus.find(au => au.key === "US");
+        if (usPhonetic && usPhonetic.phonetic) {
+          phonetic = usPhonetic.phonetic;
+        } else if (dictResult.aus.length > 0 && dictResult.aus[0].phonetic) {
+          phonetic = dictResult.aus[0].phonetic;
+        }
+      }
+      
+      if ((!dictResult || !dictResult.trs || dictResult.trs.length === 0) && word) {
+        try {
+          const transRes = await apiTranslate({
+            text: word,
+            toLang: this.provider?.setting?.toLang || "zh-CN",
+            apiSetting: this.provider?.setting?.apiSetting,
+            useCache: true
+          });
+          if (transRes && transRes.trText && transRes.trText.toLowerCase() !== word.toLowerCase()) {
+            if (!dictResult) dictResult = { word, trs: [], aus: [], sentences: [] };
+            if (!dictResult.trs) dictResult.trs = [];
+            dictResult.trs.push({ pos: "", def: transRes.trText });
+          }
+        } catch (e) {
+          logger.warn("Translate fallback for dict failed in sidebar:", e);
+        }
+      }
+      
+      let definition = "";
+      if (dictResult && dictResult.trs) {
+        definition = dictResult.trs
+          .slice(0, 3)
+          .map(tr => `${tr.pos ? tr.pos + " " : ""}${tr.def}`)
+          .join("; ");
+      }
+      
+      let examples = [];
+      if (dictResult && dictResult.sentences) {
+        examples = dictResult.sentences
+          .slice(0, 2)
+          .map(sentence => ({
+            eng: sentence.eng,
+            trans: sentence.trans
+          }));
+      }
+
+      if (sentenceContext.text) {
+        const hasDup = examples.some(ex => (ex.eng || "").toLowerCase() === sentenceContext.text.toLowerCase());
+        if (!hasDup) {
+          examples.unshift({
+            eng: sentenceContext.text,
+            trans: sentenceContext.translation || ""
+          });
+        }
+      }
+ 
+      const currentTimeMs = this.videoEl.currentTime * 1000;
+      
+      const event = new CustomEvent('theboringenglish-add-word', { 
+        detail: { 
+          word,
+          phonetic,
+          definition,
+          examples,
+          timestamp: currentTimeMs
+        } 
+      });
+      document.dispatchEvent(event);
+
+      if (this.tooltipEl) {
+        if (dictResult && (dictResult.trs || dictResult.aus || dictResult.sentences)) {
+          this.tooltipEl.replaceChildren(...this._buildTooltipDOM(word, dictResult));
+        } else {
+          this.tooltipEl.replaceChildren(...this._buildTooltipDOM(word, null));
+        }
+      }
+    } catch (error) {
+      logger.info("Sidebar dictionary lookup failed:", word, error);
+      if (this.tooltipEl) {
+        this.tooltipEl.replaceChildren(...this._buildTooltipDOM(word, null, true));
+      }
+    }
+  }
+
+  _hideWordTooltip() {
+    if (this.tooltipEl) {
+      this.tooltipEl.remove();
+      this.tooltipEl = null;
+    }
+  }
+
+  _getCurrentSubtitleSentence() {
+    if (this.lastScrolledIndex !== -1) {
+      if (this.bilingualSubtitles && this.bilingualSubtitles[this.lastScrolledIndex]) {
+        return {
+          text: this.bilingualSubtitles[this.lastScrolledIndex].text || "",
+          translation: this.bilingualSubtitles[this.lastScrolledIndex].translation || ""
+        };
+      }
+    }
+    return { text: "", translation: "" };
+  }
+
+  _buildTooltipDOM(word, dictResult, failed = false) {
+    const nodes = [];
+
+    const header = document.createElement("div");
+    header.className = "theboringenglish-word-tooltip-header";
+    const wordSpan = document.createElement("span");
+    wordSpan.textContent = word;
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "theboringenglish-word-tooltip-close";
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", () => {
+      if (this.tooltipEl) this.tooltipEl.remove();
+    });
+    header.appendChild(wordSpan);
+    header.appendChild(closeBtn);
+    nodes.push(header);
+
+    if (failed) {
+      const def = document.createElement("div");
+      def.className = "theboringenglish-word-definition";
+      def.textContent = "Failed to load definition";
+      nodes.push(def);
+      return nodes;
+    }
+
+    if (!dictResult) {
+      const def = document.createElement("div");
+      def.className = "theboringenglish-word-definition";
+      def.textContent = "No definition found";
+      nodes.push(def);
+      return nodes;
+    }
+
+    if (dictResult.aus && dictResult.aus.length > 0) {
+      const phoneticDiv = document.createElement("div");
+      dictResult.aus.forEach((au) => {
+        if (au.phonetic) {
+          const span = document.createElement("span");
+          span.className = "theboringenglish-word-phonetic";
+          span.textContent = au.phonetic;
+          phoneticDiv.appendChild(span);
+        }
+      });
+      nodes.push(phoneticDiv);
+    }
+
+    if (dictResult.trs) {
+      dictResult.trs.slice(0, 3).forEach((tr) => {
+        const defDiv = document.createElement("div");
+        defDiv.className = "theboringenglish-word-definition";
+        if (tr.pos) {
+          const posSpan = document.createElement("span");
+          posSpan.className = "theboringenglish-word-pos";
+          posSpan.textContent = tr.pos + " ";
+          defDiv.appendChild(posSpan);
+        }
+        defDiv.appendChild(document.createTextNode(tr.def));
+        nodes.push(defDiv);
+      });
+    }
+
+    if (dictResult.sentences && dictResult.sentences.length > 0) {
+      const exWrap = document.createElement("div");
+      exWrap.className = "theboringenglish-word-example";
+      const exTitle = document.createElement("div");
+      exTitle.className = "theboringenglish-word-example-title";
+      const i18n = newI18n(this.provider?.setting?.uiLang || "en");
+      exTitle.textContent = i18n("example_sentences");
+      exWrap.appendChild(exTitle);
+      dictResult.sentences.slice(0, 2).forEach((sentence) => {
+        const engDiv = document.createElement("div");
+        engDiv.className = "theboringenglish-word-example-sentence";
+        engDiv.textContent = sentence.eng;
+        const chsDiv = document.createElement("div");
+        chsDiv.className = "theboringenglish-word-example-translation";
+        chsDiv.textContent = sentence.trans;
+        
+        const itemDiv = document.createElement("div");
+        itemDiv.style.marginBottom = "6px";
+        itemDiv.appendChild(engDiv);
+        itemDiv.appendChild(chsDiv);
+        exWrap.appendChild(itemDiv);
+      });
+      nodes.push(exWrap);
+    }
+
+    return nodes;
   }
 }

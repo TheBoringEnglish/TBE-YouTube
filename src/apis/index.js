@@ -282,7 +282,15 @@ export const apiTranslate = async ({
 
   if (useCache) {
     const cache = await getHttpCachePolyfill(cacheInput);
-    if (cache?.trText) return cache;
+    if (cache?.trText) {
+      const isAI = API_SPE_TYPES.ai.has(apiSetting.apiSlug);
+      const needVocab = apiSetting.aiVocabEnabled !== false;
+      const isOldCache = isAI && needVocab && cache.vocab === undefined;
+      if (!isOldCache) {
+        return cache;
+      }
+      console.log("[TheBoringEnglish] Old translation cache without vocabulary detected. Bypassing cache to fetch new translation with vocab.");
+    }
   }
 
   let translation = [];
@@ -326,18 +334,19 @@ export const apiTranslate = async ({
   let trText = "";
   let srLang = "";
   let srCode = "";
+  let vocab = [];
   if (Array.isArray(translation)) {
-    [trText, srLang = ""] = translation;
+    [trText, srLang = "", vocab = []] = translation;
     if (srLang) {
       srCode = OPT_LANGS_TO_CODE[apiType]?.get(srLang) || "";
     }
   }
 
   if (useCache && trText) {
-    putHttpCachePolyfill(cacheInput, null, { trText, srLang, srCode });
+    putHttpCachePolyfill(cacheInput, null, { trText, srLang, srCode, vocab });
   }
 
-  return { trText, srLang, srCode };
+  return { trText, srLang, srCode, vocab: vocab || [] };
 };
 
 // 字幕处理/翻译
@@ -358,7 +367,15 @@ export const apiSubtitle = async ({
   };
   const cacheInput = `${URL_CACHE_SUBTITLE}?${queryString.stringify(cacheOpts)}`;
   const cache = await getHttpCachePolyfill(cacheInput);
-  if (cache) return cache;
+  if (cache) {
+    const isAI = API_SPE_TYPES.ai.has(apiSetting.apiSlug);
+    const needVocab = apiSetting.aiVocabEnabled !== false;
+    const isOldCache = isAI && needVocab && Array.isArray(cache) && cache.length > 0 && cache[0].vocab === undefined;
+    if (!isOldCache) {
+      return cache;
+    }
+    console.log("[TheBoringEnglish] Old subtitle cache without vocabulary detected. Bypassing cache to fetch new translation with vocab.");
+  }
 
   try {
     const subtitles = await handleSubtitle({

@@ -242,6 +242,16 @@ export const I18N = {
     ko: `저장 후 새로고침`, fr: `Enregistrer et actualiser`, de: `Speichern & Neu laden`, es: `Guardar y recargar`,
     pt: `Salvar e recarregar`, it: `Salva e ricarica`, ru: `Сохранить и обновить`, vi: `Lưu & Làm mới`,
   },
+  ai_vocab_toggle: {
+    zh: `AI 重点词汇高亮与解释`, en: `AI Key Vocabulary`, zh_TW: `AI 重點詞彙高亮與解釋`, ja: `AI重要単語のハイライトと解説`,
+    ko: `AI 핵심 어휘 하이라이트 및 해석`, fr: `Surlignage et explication du vocabulaire clé par l'IA`, de: `KI-Schlüsselvokabular-Hervorhebung`, es: `Resaltado de vocabulario clave por IA`,
+    pt: `Destaque de vocabulário-chave por IA`, it: `Evidenziazione del vocabolario chiave AI`, ru: `Выделение ключевых слов ИИ`, vi: `Tô sáng từ vựng cốt lõi bằng AI`,
+  },
+  ai_vocab_toggle_desc: {
+    zh: `智能识别难词短语并同步至单词表`, en: `Let AI extract key terms contextually.`, zh_TW: `智能識別難詞短語並同步至單字表`, ja: `文脈に合わせて重要語句を抽出し、単語帳に登録します。`,
+    ko: `문맥에 맞게 핵심 어휘를 추출하여 단어장에 등록합니다.`, fr: `Laisser l'IA extraire les termes clés en contexte.`, de: `Lassen Sie die KI Schlüsselbegriffe kontextуально извлекать.`, es: `Permitir que la IA extraiga términos clave en contexto.`,
+    pt: `Permitir que a IA extraia termos-chave no contexto.`, it: `Consente all'IA di estrarre termini chiave nel contesto.`, ru: `ИИ контекстуально выделяет ключевые слова.`, vi: `Cho phép AI tự động trích xuất các từ cốt lõi.`,
+  },
   saved: {
     zh: `已保存`, en: `Saved`, zh_TW: `已儲存`, ja: `保存済み`,
     ko: `저장됨`, fr: `Enregistré`, de: `Gespeichert`, es: `Guardado`,
@@ -508,9 +518,9 @@ export const I18N = {
     ko: `가져오기 실패: 동기화 토큰이 만료되었거나 유효하지 않습니다.\n\n브라우저 우측 상단의 TBE 확장 프로그램 아이콘을 클릭하고 '동기화'(Sync) 탭에서 TheBoringEnglish 계정을 다시 연결하십시오 (로그아웃된 경우 메인 사이트에 먼저 로그인하십시오).`,
   },
   import_fail_network: {
-    zh: `导入失败：无法连接到 TBE 主站服务器。\n\n请确认您的 TheBoringEnglish 后端服务是否已正常启动（通常是 http://localhost:8000），并检查插件“联动”配置中的“服务器地址”是否正确。`,
-    en: `Import failed: Unable to connect to the TBE server.\n\nPlease ensure that your TheBoringEnglish backend service is running (usually http://localhost:8000), and check if the "Server URL" in the extension "Sync" tab is correct.`,
-    zh_TW: `匯入失敗：無法連接到 TBE 主站服務器。\n\n請確認您的 TheBoringEnglish 後端服務是否已正常啟動（通常是 http://localhost:8000），並檢查插件“聯動”配置中的“服務器地址”是否正確。`,
+    zh: `导入失败：无法连接到 TBE 主站服务器。\n\n请确认您的 TheBoringEnglish 后端服务是否已正常启动（通常是 http://localhost:8000 或实际运行端口），并检查插件“联动”配置中的“服务器地址”是否正确。`,
+    en: `Import failed: Unable to connect to the TBE server.\n\nPlease ensure that your TheBoringEnglish backend service is running (usually http://localhost:8000 or your custom backend port), and check if the "Server URL" in the extension "Sync" tab is correct.`,
+    zh_TW: `匯入失敗：無法連接到 TBE 主站服務器。\n\n請確認您的 TheBoringEnglish 後端服務是否已正常啟動（通常是 http://localhost:8000 或實際運行端口），並檢查插件“聯動”配置中的“服務器地址”是否正確。`,
     ja: `インポート失敗：TBEサーバーに接続できません。\n\nTheBoringEnglishバックエンドサービスが正常に起動しているか（通常は http://localhost:8000）、および拡張機能の「同期」設定内の「サーバーURL」が正しいか確認してください。`,
     ko: `가져오기 실패: TBE 서버에 연결할 수 없습니다.\n\nTheBoringEnglish 백엔드 서비스가 정상적으로 실행 중인지 (보통 http://localhost:8000), 그리고 확장 프로그램 '동기화' 설정의 '서버 URL'이 올바른지 확인하십시오.`,
   },
@@ -870,6 +880,20 @@ export const I18N = {
     zh_TW: `儲存並重新整理`,
     ja: `保存して更新`,
     ko: `저장 및 새로고침`,
+  },
+  ai_vocab_toggle: {
+    zh: `AI 重点词汇高亮与解释`,
+    en: `AI Key Vocabulary`,
+    zh_TW: `AI 重點詞彙高亮與解釋`,
+    ja: `AI重要単語のハイライトと解説`,
+    ko: `AI 핵심 어휘 하이라이트 및 해석`,
+  },
+  ai_vocab_toggle_desc: {
+    zh: `智能识别难词短语并同步至单词表`,
+    en: `Let AI extract key terms contextually.`,
+    zh_TW: `智能識別難詞短語並同步至單字表`,
+    ja: `文脈に合わせて重要語句を抽出し、単语帳に登録します。`,
+    ko: `문맥에 맞게 핵심 어휘를 추출하여 단어장에 등록합니다.`,
   },
   saved: {
     zh: `设置已保存`,

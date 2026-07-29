@@ -68,6 +68,10 @@ class YouTubeCaptionProvider {
     this.#menuEventName = genEventName();
   }
 
+  get setting() {
+    return this.#setting;
+  }
+
   get #videoId() {
     const docUrl = new URL(document.location.href);
     return docUrl.searchParams.get("v");
@@ -1000,7 +1004,8 @@ class YouTubeCaptionProvider {
           start: sub.start,
           end: sub.end,
           text: sub.text,
-          translation: sub.translation || ''
+          translation: sub.translation || '',
+          vocab: sub.vocab || []
         }));
         this.#subtitleListManager.setBilingualSubtitles(updatedBilingualSubtitles);
       };
@@ -1010,7 +1015,8 @@ class YouTubeCaptionProvider {
         start: sub.start,
         end: sub.end,
         text: sub.text,
-        translation: sub.translation || ''
+        translation: sub.translation || '',
+        vocab: sub.vocab || []
       }));
       
       // 将双语字幕数据传递给字幕列表

@@ -72,12 +72,6 @@ function formatMillisecondsToTimestamp(ms) {
 
   return `${hours}:${minutes}:${seconds}.${milliseconds}`;
 }
-
-/**
- * 解析包含双语字幕的VTT文件内容。
- * @param {string} vttText - VTT文件的文本内容。
- * @returns {Array<Object>} 一个包含字幕对象的数组，每个对象包含 start, end, text, 和 translation.
- */
 export function parseBilingualVtt(vttText) {
   const cleanText = vttText.replace(/^\uFEFF/, "").trim();
   if (!cleanText) {
@@ -104,12 +98,24 @@ export function parseBilingualVtt(vttText) {
     if (startTimeString && endTimeString && textLines.length > 0) {
       const originalText = textLines[0]?.trim() || "";
       const translatedText = textLines[1]?.trim() || "";
+      
+      let vocab = [];
+      const wordsLine = textLines.find(line => line.trim().startsWith("Words:"));
+      if (wordsLine) {
+        try {
+          const jsonStr = wordsLine.trim().substring(6).trim();
+          vocab = JSON.parse(jsonStr);
+        } catch (e) {
+          // ignore
+        }
+      }
 
       result.push({
         start: parseTimestampToMilliseconds(startTimeString),
         end: parseTimestampToMilliseconds(endTimeString),
         text: originalText,
         translation: translatedText,
+        vocab: vocab,
       });
     }
   }
@@ -117,11 +123,6 @@ export function parseBilingualVtt(vttText) {
   return result;
 }
 
-/**
- * 将 parseBilingualVtt 生成的JSON数据转换回标准的VTT字幕字符串。
- * @param {Array<Object>} cues - 字幕对象数组，
- * @returns {string} - 格式化的VTT文件内容字符串。
- */
 export function buildBilingualVtt(cues) {
   if (!Array.isArray(cues)) {
     return "WEBVTT";
@@ -138,9 +139,15 @@ export function buildBilingualVtt(cues) {
 
     const textLine = cue.text || "";
     const translationLine = cue.translation || "";
+    const vocabLine = cue.vocab && cue.vocab.length > 0 
+      ? `\nWords: ${JSON.stringify(cue.vocab)}` 
+      : "";
 
-    return `${cueIndex}\n${timestampLine}\n${textLine}\n${translationLine}`;
+    return `${cueIndex}\n${timestampLine}\n${textLine}\n${translationLine}${vocabLine}`;
   });
 
   return [header, ...cueBlocks].join("\n\n");
 }
+
+
+

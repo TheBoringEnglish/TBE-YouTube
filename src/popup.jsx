@@ -63,13 +63,28 @@ const LANG_DISPLAY = {
   "en": { zh: "英语", zh_TW: "英語", en: "English", ja: "英語", ko: "영어", fr: "Anglais", de: "Englisch", es: "Inglés", pt: "Inglês", it: "Inglese", ru: "Английский", vi: "Tiếng Anh" },
   "ja": { zh: "日语", zh_TW: "日語", en: "Japanese", ja: "日本語", ko: "일본어", fr: "Japonais", de: "Japanisch", es: "Japonés", pt: "Japonês", it: "Giapponese", ru: "Японский", vi: "Tiếng Nhật" },
   "ko": { zh: "韩语", zh_TW: "韓語", en: "Korean", ja: "韓国語", ko: "한국어", fr: "Coréen", de: "Koreanisch", es: "Coreano", pt: "Coreano", it: "Coreano", ru: "Корейский", vi: "Tiếng Hàn" },
-  "fr": { zh: "法语", zh_TW: "法語", en: "French", ja: "フランス語", ko: "프랑스어", fr: "Coréen", de: "Französisch", es: "Francés", pt: "Francês", it: "Francese", ru: "Французский", vi: "Tiếng Pháp" },
+  "fr": { zh: "法语", zh_TW: "法語", en: "French", ja: "フランス語", ko: "프랑스어", fr: "Français", de: "Französisch", es: "Francés", pt: "Francês", it: "Francese", ru: "Французский", vi: "Tiếng Pháp" },
   "de": { zh: "德语", zh_TW: "德語", en: "German", ja: "ドイツ語", ko: "독일어", fr: "Allemand", de: "Deutsch", es: "Alemán", pt: "Alemão", it: "Tedesco", ru: "Немецкий", vi: "Tiếng Đức" },
   "es": { zh: "西班牙语", zh_TW: "西班牙語", en: "Spanish", ja: "スペイン語", ko: "스페인어", fr: "Espagnol", de: "Spanisch", es: "Español", pt: "Espanhol", it: "Spagnolo", ru: "Испанский", vi: "Tiếng Tây Ban Nha" },
   "pt": { zh: "葡萄牙语", zh_TW: "葡萄牙語", en: "Portuguese", ja: "ポルトガル語", ko: "포르투갈어", fr: "Portugais", de: "Portugiesisch", es: "Portugués", pt: "Português", it: "Portoghese", ru: "Português", vi: "Tiếng Bồ Đào Nha" },
   "it": { zh: "意大利语", zh_TW: "義大利語", en: "Italian", ja: "イタリア語", ko: "이탈리아어", fr: "Italien", de: "Italienisch", es: "Italiano", pt: "Italiano", it: "Italiano", ru: "Итальянский", vi: "Tiếng Ý" },
   "ru": { zh: "俄语", zh_TW: "俄語", en: "Russian", ja: "ロシア語", ko: "러시아어", fr: "Russe", de: "Russisch", es: "Ruso", pt: "Russo", it: "Russo", ru: "Русский", vi: "Tiếng Nga" },
   "vi": { zh: "越南语", zh_TW: "越南語", en: "Vietnamese", ja: "ベトナム語", ko: "베트남어", fr: "Vietnamien", de: "Vietnamesisch", es: "Vietnamita", pt: "Vietnamita", it: "Vietnamita", ru: "Вьетнамский", vi: "Tiếng Việt" },
+};
+
+const LANG_NATIVE_NAMES = {
+  "zh-CN": "简体中文",
+  "zh-TW": "繁體中文",
+  "en": "English",
+  "ja": "日本語",
+  "ko": "한국어",
+  "fr": "Français",
+  "de": "Deutsch",
+  "es": "Español",
+  "pt": "Português",
+  "it": "Italiano",
+  "ru": "Русский",
+  "vi": "Tiếng Việt",
 };
 
 function StatusDot({ status }) {
@@ -95,6 +110,7 @@ function App() {
   const [isSaved, setIsSaved] = useState(false);
   const [activeSection, setActiveSection] = useState("translation");
   const [subEnabled, setSubEnabled] = useState(true);
+  const [aiVocabEnabled, setAiVocabEnabled] = useState(true);
   const [uiLang, setUiLang] = useState(getBrowserLangForI18n());
 
   // 已绑定的主站配置
@@ -140,6 +156,7 @@ function App() {
         setSelectedSlug(subtitleSet.apiSlug || OPT_TRANS_MICROSOFT);
         setTargetLang(subtitleSet.toLang || getBrowserLang());
         setSubEnabled(subtitleSet.enabled !== false);
+        setAiVocabEnabled(subtitleSet.aiVocabEnabled !== false);
 
         if (setting.uiLang) setUiLang(setting.uiLang);
 
@@ -193,14 +210,14 @@ function App() {
             func: () => {
               let username = "";
               try {
-                const userJson = localStorage.getItem("lingoflow_user");
+                const userJson = localStorage.getItem("tbe_user");
                 if (userJson) {
                   const userObj = JSON.parse(userJson);
                   username = userObj.username || "";
                 }
               } catch (e) {}
               return {
-                token: localStorage.getItem("lingoflow_token"),
+                token: localStorage.getItem("tbe_token"),
                 username: username,
                 serverUrl: window.location.origin,
               };
@@ -340,6 +357,7 @@ function App() {
         segSlug: isAI ? selectedSlug : "-",
         isAISegment: isAI,
         toLang: targetLang,
+        aiVocabEnabled: aiVocabEnabled,
       };
 
       const mappedUiLang = LANG_MAP[targetLang] || "en";
@@ -485,11 +503,18 @@ function App() {
                 setUiLang(mapped);
               }}
             >
-              {OPT_LANGS_TO.map(([code, name]) => (
-                <option key={code} value={code}>
-                  {LANG_DISPLAY[code]?.[uiLang] || name}
-                </option>
-              ))}
+              {OPT_LANGS_TO.map(([code, name]) => {
+                const translated = LANG_DISPLAY[code]?.[uiLang] || name;
+                const native = LANG_NATIVE_NAMES[code];
+                const displayName = (native && translated !== native)
+                  ? `${translated} (${native})`
+                  : translated;
+                return (
+                  <option key={code} value={code}>
+                    {displayName}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -570,6 +595,43 @@ function App() {
                   />
                 </div>
               )}
+            </div>
+          )}
+
+          {API_SPE_TYPES.ai.has(selectedSlug) && (
+            <div className="form-group toggle-group" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", padding: "10px 0", borderTop: "1px dashed #e5e7eb" }}>
+              <div>
+                <label className="form-label" style={{ marginBottom: "2px", cursor: "pointer" }}>{i18n("ai_vocab_toggle")}</label>
+                <div style={{ fontSize: "11px", color: "#888", opacity: 0.8 }}>{i18n("ai_vocab_toggle_desc")}</div>
+              </div>
+              <label className="switch" style={{ position: "relative", display: "inline-block", width: "40px", height: "20px" }}>
+                <input
+                  type="checkbox"
+                  checked={aiVocabEnabled}
+                  onChange={(e) => setAiVocabEnabled(e.target.checked)}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span className="slider round" style={{
+                  position: "absolute",
+                  cursor: "pointer",
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: aiVocabEnabled ? "#c27c2a" : "#ccc",
+                  transition: ".2s",
+                  borderRadius: "20px"
+                }}>
+                  <span className="slider-button" style={{
+                    position: "absolute",
+                    content: "''",
+                    height: "14px",
+                    width: "14px",
+                    left: aiVocabEnabled ? "23px" : "3px",
+                    bottom: "3px",
+                    backgroundColor: "white",
+                    transition: ".2s",
+                    borderRadius: "50%"
+                  }} />
+                </span>
+              </label>
             </div>
           )}
 

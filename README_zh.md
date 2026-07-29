@@ -56,8 +56,16 @@
 
 ## 📦 下载与安装
 
-### 📥 方式一：下载发布包直接安装（推荐普通用户）
+### 📥 方式一：从 Chrome 应用商店官方安装（推荐）
 
+您可以直接在 Chrome 应用商店一键安装：
+👉 **[Chrome 应用商店 - TheBoringEnglish](https://chromewebstore.google.com/detail/theboringenglish/mdofepbdjfkkpogeemdlgnhadgbigdjh)**
+
+---
+
+### 📥 方式二：下载发布包直接离线安装
+
+如果您无法访问 Chrome 应用商店，也可以手动安装离线包：
 1. 前往 GitHub 的 [Releases](https://github.com/TheBoringEnglish/TBE-YouTube/releases) 页面下载最新版本的 `.zip` 安装包（例如 `TBE-YouTube-v1.0.0.zip`）。
 2. 将下载的压缩包解压到本地任意目录（解压后请勿删除或移动该目录）。
 3. 打开 Chrome 浏览器，访问 `chrome://extensions/` 进入扩展程序管理页面。
