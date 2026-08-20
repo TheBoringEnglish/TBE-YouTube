@@ -92,6 +92,9 @@ class YouTubeCaptionProvider {
 
   initialize() {
     window.addEventListener("message", (event) => {
+      // 严格校验来源与调用源，杜绝恶意跨域脚本投递伪造字幕
+      if (event.origin !== window.location.origin || event.source !== window) return;
+      
       if (event.data && event.data.type) {
         console.log("[TheBoringEnglish Provider] Received window message type:", event.data.type);
       }
@@ -118,24 +121,16 @@ class YouTubeCaptionProvider {
         data: { isAISegment: this.#setting.isAISegment },
       });
 
+      // 重新恢复定期检查定时器
+      this.#startButtonCheckInterval();
+
       // 重新监听主控条，防止 SPA 导航导致按钮丢失
       this.#waitForElement(CONTROLS_SELECT, (ytControls) => {
         this.#injectToggleButton(ytControls);
       });
     });
 
-    // 定期检查并注入按钮，应对 YouTube 极速模式下极其复杂的 DOM 变动（ID 已存储以便清理）
-    this.#buttonCheckInterval = setInterval(() => {
-      const { enabled = true } = this.#setting?.subtitleSetting || {};
-      if (!enabled) return;
-
-      const ytControls = document.querySelector(CONTROLS_SELECT) || 
-                         document.getElementById("movie_player")?.shadowRoot?.querySelector(CONTROLS_SELECT);
-      if (ytControls) {
-        this.#injectToggleButton(ytControls);
-        this.#attachNativeSubtitleListener(ytControls);
-      }
-    }, 2000);
+    this.#startButtonCheckInterval();
 
     const initialControls = document.querySelector(CONTROLS_SELECT) ||
                             document.getElementById("movie_player")?.shadowRoot?.querySelector(CONTROLS_SELECT);
@@ -1062,6 +1057,25 @@ class YouTubeCaptionProvider {
       this.#subtitleListManager.destroy();
       this.#subtitleListManager = null;
     }
+  }
+
+  #startButtonCheckInterval() {
+    if (this.#buttonCheckInterval !== null) {
+      clearInterval(this.#buttonCheckInterval);
+      this.#buttonCheckInterval = null;
+    }
+
+    this.#buttonCheckInterval = setInterval(() => {
+      const { enabled = true } = this.#setting?.subtitleSetting || {};
+      if (!enabled) return;
+
+      const ytControls = document.querySelector(CONTROLS_SELECT) || 
+                         document.getElementById("movie_player")?.shadowRoot?.querySelector(CONTROLS_SELECT);
+      if (ytControls) {
+        this.#injectToggleButton(ytControls);
+        this.#attachNativeSubtitleListener(ytControls);
+      }
+    }, 2000);
   }
 
   #hideYtCaption() {
