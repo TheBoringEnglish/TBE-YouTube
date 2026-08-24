@@ -4,6 +4,8 @@ import { BilingualSubtitleManager } from "./BilingualSubtitleManager";
 import { YouTubeSubtitleList } from "./YouTubeSubtitleList";
 import {
   MSG_XHR_DATA_YOUTUBE,
+  MSG_CAPTION_TRACKS_YOUTUBE,
+  MSG_REQUEST_CAPTION_TRACKS,
   APP_NAME,
   OPT_LANGS_TO_CODE,
   OPT_TRANS_MICROSOFT,
@@ -54,8 +56,8 @@ class YouTubeCaptionProvider {
   // 新增：用于跟踪和取消过时异步任务的会话 Token
   #processingSessionId = null;
 
-  // 新增：存留的未翻译字幕块及处理状态
-  #remainingChunks = [];
+  // 新增：结构化分块列表及处理状态
+  #chunks = [];
   #isProcessingChunk = false;
 
   #currentLang = null;
@@ -104,6 +106,12 @@ class YouTubeCaptionProvider {
         if (url && response) {
           this.#handleInterceptedRequest(url, response);
         }
+      } else if (event.data?.type === MSG_CAPTION_TRACKS_YOUTUBE) {
+        if (Array.isArray(event.data.captionTracks) && event.data.captionTracks.length > 0) {
+          logger.info("Youtube Provider: Received captionTracks from MAIN world:", event.data.captionTracks.length);
+          this.#captionTracks = event.data.captionTracks;
+          this.#applyOfficialTranslationIfAvailable();
+        }
       }
     });
 
@@ -121,6 +129,9 @@ class YouTubeCaptionProvider {
         data: { isAISegment: this.#setting.isAISegment },
       });
 
+      // 主动请求 MAIN world 提取最新播放器的字幕轨道
+      window.postMessage({ type: MSG_REQUEST_CAPTION_TRACKS }, window.location.origin);
+
       // 重新恢复定期检查定时器
       this.#startButtonCheckInterval();
 
@@ -129,6 +140,9 @@ class YouTubeCaptionProvider {
         this.#injectToggleButton(ytControls);
       });
     });
+
+    // 初始化时主动请求字幕轨道
+    window.postMessage({ type: MSG_REQUEST_CAPTION_TRACKS }, window.location.origin);
 
     this.#startButtonCheckInterval();
 
@@ -166,18 +180,25 @@ class YouTubeCaptionProvider {
               const parsed = typeof newVal === "string" ? JSON.parse(newVal) : newVal;
               if (!parsed?.subtitleSetting) continue;
 
+              const newEnabled = parsed.subtitleSetting.enabled;
               const newToLang = parsed.subtitleSetting.toLang;
               const newApiSlug = parsed.subtitleSetting.apiSlug;
               const oldToLang = this.#setting.toLang;
               const oldApiSlug = this.#setting.apiSlug;
+
+              // 更新 enabled 开关状态
+              if (newEnabled !== undefined && newEnabled !== this.#setting.enabled) {
+                logger.info("Youtube Provider: enabled changed via storage", this.#setting.enabled, "→", newEnabled);
+                this.setEnabled(newEnabled);
+              }
 
               // 更新 toLang
               if (newToLang && newToLang !== oldToLang) {
                 logger.info("Youtube Provider: toLang changed via storage", oldToLang, "→", newToLang);
                 this.#setting.toLang = newToLang;
 
-                // 如果已有字幕事件，重新处理
-                if (this.#flatEvents.length) {
+                // 如果已有字幕事件且处于启用状态，重新处理
+                if (this.#flatEvents.length && this.#setting.enabled !== false) {
                   this.#destroyManager();
                   this.#subtitles = [];
                   this.#progressed = 0;
@@ -308,7 +329,59 @@ class YouTubeCaptionProvider {
     });
   }
 
+  setEnabled(enabled) {
+    const isEnabled = enabled !== false;
+    this.#setting.enabled = isEnabled;
+    logger.info("Youtube Provider: setEnabled ->", isEnabled);
+
+    // 持久化到存储
+    putSetting({
+      subtitleSetting: {
+        ...this.#setting,
+        enabled: isEnabled,
+      }
+    });
+
+    // 同步更新菜单 UI
+    this.#sendMenusMsg({
+      action: MSG_MENUS_UPDATEFORM,
+      data: { enabled: isEnabled },
+    });
+
+    if (!isEnabled) {
+      // 彻底销毁 TBE 管理器并完全复原 YouTube 官方字幕
+      this.#destroyManager();
+      this.#showYtCaption();
+      if (this.#subtitleListManager) {
+        this.#subtitleListManager.destroy();
+        this.#subtitleListManager = null;
+      }
+      if (this.#toggleButton) {
+        this.#toggleButton.style.opacity = "0.5";
+      }
+    } else {
+      if (this.#toggleButton) {
+        this.#toggleButton.style.opacity = "1";
+      }
+      // 如果已有字幕数据且 YouTube 字幕按钮开启，立即重新启动接管
+      const ytSubtitleBtn = document.querySelector(YT_SUBTITLE_BTN_SELECT);
+      const isYtCcOn = !ytSubtitleBtn || ytSubtitleBtn.getAttribute("aria-pressed") === "true";
+      if (isYtCcOn && this.#flatEvents.length > 0) {
+        this.#processEvents({
+          videoId: this.#videoId,
+          flatEvents: this.#flatEvents,
+          fromLang: this.#fromLang,
+        });
+      }
+    }
+  }
+
   updateSetting({ name, value }) {
+    if (name === "enabled") {
+      this.setEnabled(value);
+      return;
+    }
+
     if (this.#setting[name] === value) return;
 
     logger.debug("Youtube Provider: update setting", name, value);
@@ -323,6 +396,7 @@ class YouTubeCaptionProvider {
         isAISegment: this.#setting.isAISegment,
         isBilingual: this.#setting.isBilingual,
         showOrigin: this.#setting.showOrigin,
+        showSubtitleList: this.#setting.showSubtitleList !== false,
         skipAd: this.#setting.skipAd,
         toLang: this.#setting.toLang,
       }
@@ -473,11 +547,15 @@ class YouTubeCaptionProvider {
     if (ytSubtitleBtn && !ytSubtitleBtn.__THEBORINGENGLISH_ATTACHED__) {
       ytSubtitleBtn.__THEBORINGENGLISH_ATTACHED__ = true;
       ytSubtitleBtn.addEventListener("click", () => {
-        if (ytSubtitleBtn.getAttribute("aria-pressed") === "true") {
-          this.#startManager();
-        } else {
-          this.#destroyManager();
-        }
+        setTimeout(() => {
+          if (ytSubtitleBtn.getAttribute("aria-pressed") === "true") {
+            if (this.#currentLang?.toLowerCase().startsWith("en") && this.#subtitles.length > 0) {
+              this.#startManager();
+            }
+          } else {
+            this.#destroyManager();
+          }
+        }, 50);
       });
     }
   }
@@ -519,6 +597,7 @@ class YouTubeCaptionProvider {
         hasSegApi: !!segApiSetting,
         eventName: this.#menuEventName,
         initData: {
+          enabled: this.#setting.enabled !== false, // 插件总开关
           isAISegment, // AI智能断句
           skipAd, // 快进广告
           isBilingual, // 双语显示
@@ -559,47 +638,125 @@ class YouTubeCaptionProvider {
   }
 
   #isSameLang(lang1, lang2) {
-    return lang1.slice(0, 2) === lang2.slice(0, 2);
+    if (!lang1 || !lang2) return false;
+    const l1 = lang1.toLowerCase().split(/[-_]/)[0];
+    const l2 = lang2.toLowerCase().split(/[-_]/)[0];
+    return l1 === l2;
   }
 
-  // todo: 优化逻辑
-  #findCaptionTrack(captionTracks) {
+  #findCaptionTrack(captionTracks, currentLang) {
     if (!captionTracks?.length) {
       return null;
     }
 
-    // 1. 优先寻找非 ASR 的英文
-    const enTrack = captionTracks.find(item => 
-      (item.languageCode === 'en' || item.languageCode?.startsWith('en-')) && 
-      item.kind !== "asr"
+    // 1. 对于英语精读与双语学习，只要视频存在英文原声字幕（人工或 ASR），始终以英文作为主学习原声轨道
+    const enManual = captionTracks.find(item => 
+      item.kind !== "asr" && 
+      (item.languageCode === 'en' || item.languageCode?.startsWith('en-') || item.languageCode?.startsWith('en_'))
     );
-    if (enTrack) return enTrack;
+    if (enManual) return enManual;
 
-    // 2. 其次寻找 ASR 的英文
-    const enAsrTrack = captionTracks.find(item => 
-      (item.languageCode === 'en' || item.languageCode?.startsWith('en-')) && 
-      item.kind === "asr"
+    const enAsr = captionTracks.find(item => 
+      item.kind === "asr" && 
+      (item.languageCode === 'en' || item.languageCode?.startsWith('en-') || item.languageCode?.startsWith('en_'))
     );
-    if (enAsrTrack) return enAsrTrack;
+    if (enAsr) return enAsr;
 
-    // 3. 原有逻辑：找与当前 ASR 语言一致的非 ASR 轨道
-    const asrTrack = captionTracks.find((item) => item.kind === "asr");
-    if (asrTrack) {
-      const matchingTrack = captionTracks.find(
-        (item) =>
-          item.kind !== "asr" &&
-          this.#isSameLang(item.languageCode, asrTrack.languageCode)
+    // 2. 如果视频本身不是英文视频（如纯中文或日文），优先匹配当前选择的语言
+    if (currentLang) {
+      const exactManual = captionTracks.find(item => 
+        item.kind !== "asr" && 
+        (item.languageCode?.toLowerCase() === currentLang.toLowerCase() || this.#isSameLang(item.languageCode, currentLang))
       );
-      if (matchingTrack) return matchingTrack;
-      return asrTrack;
+      if (exactManual) return exactManual;
+
+      const exactAsr = captionTracks.find(item => 
+        item.kind === "asr" && 
+        (item.languageCode?.toLowerCase() === currentLang.toLowerCase() || this.#isSameLang(item.languageCode, currentLang))
+      );
+      if (exactAsr) return exactAsr;
     }
 
-    // 4. 最后回退到第一个
+    // 3. 回退到第一个可用轨道
     return captionTracks[0];
+  }
+
+  #parseTimedText(data) {
+    if (!data) return null;
+    if (typeof data === "object" && Array.isArray(data.events)) {
+      return data.events;
+    }
+    if (typeof data !== "string") return null;
+
+    const trimmed = data.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        const json = JSON.parse(trimmed);
+        return json?.events || (Array.isArray(json) ? json : null);
+      } catch {}
+    }
+
+    // Try XML parser for YouTube srv3 or standard XML subtitles
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, "text/xml");
+      if (!doc.querySelector("parsererror")) {
+        const events = [];
+        const pElements = doc.querySelectorAll("p");
+        if (pElements.length > 0) {
+          pElements.forEach((p) => {
+            const tStartMs = parseInt(p.getAttribute("t") || "0", 10);
+            const dDurationMs = parseInt(p.getAttribute("d") || "0", 10);
+            const sElements = p.querySelectorAll("s");
+            const segs = [];
+
+            if (sElements.length > 0) {
+              sElements.forEach((s) => {
+                const utf8 = s.textContent || "";
+                const tOffsetMs = parseInt(s.getAttribute("t") || "0", 10);
+                segs.push({ utf8, tOffsetMs });
+              });
+            } else {
+              segs.push({ utf8: p.textContent || "", tOffsetMs: 0 });
+            }
+
+            events.push({ tStartMs, dDurationMs, segs });
+          });
+          return events;
+        }
+
+        const textElements = doc.querySelectorAll("text");
+        if (textElements.length > 0) {
+          textElements.forEach((textEl) => {
+            const startSec = parseFloat(textEl.getAttribute("start") || "0");
+            const durSec = parseFloat(textEl.getAttribute("dur") || "0");
+            const tStartMs = Math.round(startSec * 1000);
+            const dDurationMs = Math.round(durSec * 1000);
+            const utf8 = textEl.textContent || "";
+            events.push({
+              tStartMs,
+              dDurationMs,
+              segs: [{ utf8, tOffsetMs: 0 }],
+            });
+          });
+          return events;
+        }
+      }
+    } catch (err) {
+      logger.info("Youtube Provider: parse XML error", err);
+    }
+
+    return null;
   }
 
   async #getCaptionTracks(videoId) {
     try {
+      const playerResp = document.getElementById("movie_player")?.getPlayerResponse?.() ||
+                         window.ytInitialPlayerResponse;
+      if (playerResp?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+        return playerResp.captions.playerCaptionsTracklistRenderer.captionTracks;
+      }
+
       const url = `https://www.youtube.com/watch?v=${videoId}`;
       const html = await fetch(url).then((r) => r.text());
       const match = html.match(/ytInitialPlayerResponse\s*=\s*(\{.*?\});/s);
@@ -620,12 +777,9 @@ class YouTubeCaptionProvider {
         capUrl.searchParams.get("lang")
       )
     ) {
-      try {
-        const json = JSON.parse(responseText);
-        return json?.events;
-      } catch (err) {
-        logger.info("Youtube Provider: parse responseText", err);
-        return null;
+      const parsed = this.#parseTimedText(responseText);
+      if (parsed) {
+        return parsed;
       }
     }
 
@@ -641,8 +795,8 @@ class YouTubeCaptionProvider {
 
       const res = await fetch(potUrl.href);
       if (res?.ok) {
-        const json = await res.json();
-        return json?.events;
+        const text = await res.text();
+        return this.#parseTimedText(text);
       }
       logger.info(`Youtube Provider: Failed to fetch subtitles: ${res.status}`);
       return null;
@@ -684,45 +838,127 @@ class YouTubeCaptionProvider {
 
   async getOfficialTranslationByTime(toLang, enSubtitles) {
     if (!this.#captionTracks || this.#captionTracks.length === 0) return null;
-    if (!toLang) return null;
+    if (!toLang || !enSubtitles || enSubtitles.length === 0) return null;
     
-    const langPrefix = toLang.split('-')[0].toLowerCase();
-    const targetTrack = this.#captionTracks.find(t => t.languageCode?.toLowerCase().startsWith(langPrefix) && t.kind !== 'asr');
-    if (!targetTrack) return null;
+    const targetLang = toLang.toLowerCase();
+    const langPrefix = targetLang.split('-')[0];
+
+    // 智能匹配官方字幕轨道：
+    // 1. 如果目标是中文(zh/zh-CN/zh-Hans)，优先匹配 zh-Hans / zh-CN / zh
+    // 2. 如果目标是繁体(zh-TW/zh-HK/zh-Hant)，优先匹配 zh-Hant / zh-TW / zh-HK
+    // 3. 否则根据前缀匹配非 ASR 轨道
+    let targetTrack = null;
+    if (langPrefix === "zh") {
+      const isTraditional = targetLang.includes("tw") || targetLang.includes("hk") || targetLang.includes("hant");
+      if (isTraditional) {
+        targetTrack = this.#captionTracks.find(t => 
+          t.kind !== "asr" && (t.languageCode === "zh-Hant" || t.languageCode === "zh-TW" || t.languageCode === "zh-HK")
+        ) || this.#captionTracks.find(t => t.kind !== "asr" && t.languageCode?.toLowerCase().startsWith("zh"));
+      } else {
+        targetTrack = this.#captionTracks.find(t => 
+          t.kind !== "asr" && (t.languageCode === "zh-Hans" || t.languageCode === "zh-CN" || t.languageCode === "zh")
+        ) || this.#captionTracks.find(t => t.kind !== "asr" && t.languageCode?.toLowerCase().startsWith("zh"));
+      }
+    } else {
+      targetTrack = this.#captionTracks.find(t => 
+        t.kind !== "asr" && (t.languageCode?.toLowerCase() === targetLang || t.languageCode?.toLowerCase().startsWith(langPrefix))
+      );
+    }
+
+    // 如果未找到人工轨道，放宽到 ASR 自动生成轨道
+    if (!targetTrack) {
+      if (langPrefix === "zh") {
+        targetTrack = this.#captionTracks.find(t => t.languageCode?.toLowerCase().startsWith("zh"));
+      } else {
+        targetTrack = this.#captionTracks.find(t => t.languageCode?.toLowerCase().startsWith(langPrefix));
+      }
+    }
+
+    if (!targetTrack) {
+      logger.info(`Youtube Provider: No official caption track found matching target language '${toLang}'. Available:`, this.#captionTracks.map(t => `${t.languageCode}(${t.kind || 'manual'})`));
+      return null;
+    }
+
+    logger.info(`Youtube Provider: Found official translation track: ${targetTrack.languageCode} (${targetTrack.name?.simpleText || ''}), fetching baseUrl: ${targetTrack.baseUrl}`);
 
     try {
-      const url = new URL(targetTrack.baseUrl);
+      const url = new URL(targetTrack.baseUrl, window.location.origin);
       url.searchParams.set("fmt", "json3");
-      const res = await fetch(url.href);
-      if (res.ok) {
+      let res;
+      try {
+        res = await fetch(url.href);
+      } catch {
+        res = await fetch(targetTrack.baseUrl);
+      }
+      if (res && res.ok) {
         const text = await res.text();
         if (!text || !text.trim()) {
           return null;
         }
-        const json = JSON.parse(text);
-        const events = json?.events;
-        if (events) {
+        const events = this.#parseTimedText(text);
+        if (events && events.length > 0) {
           const targetFlat = this.#genFlatEvents(events);
           const targetSubtitles = this.#formatSubtitles(targetFlat, toLang);
           
+          const isNoSpaceLang = ["zh", "ja", "ko", "th"].some(l => targetLang.startsWith(l));
+          const joinSeparator = isNoSpaceLang ? "" : " ";
+
           return enSubtitles.map((enSub) => {
-            const overlapping = targetSubtitles.filter(targetSub => 
-              targetSub.start < enSub.end && targetSub.end > enSub.start
+            // 时间重叠判定：放宽 600ms 容差
+            let overlapping = targetSubtitles.filter(targetSub => 
+              (targetSub.start < enSub.end + 600 && targetSub.end > enSub.start - 600)
             );
             
-            let translationText = overlapping.map(sub => sub.text).join(' ');
+            // 如果没找到直接重叠，寻找离 enSub.start 最近的 targetSub (差距在 1500ms 内)
+            if (overlapping.length === 0) {
+              const nearest = targetSubtitles.find(targetSub => 
+                Math.abs(targetSub.start - enSub.start) < 1500
+              );
+              if (nearest) overlapping = [nearest];
+            }
+
+            let translationText = overlapping.map(sub => sub.text).filter(Boolean).join(joinSeparator).trim();
             
             return {
               ...enSub,
-              translation: translationText || " "
+              translation: translationText || enSub.translation || ""
             };
           });
         }
       }
     } catch (e) {
-      console.error("[TheBoringEnglish Provider] getOfficialTranslationByTime err:", e);
+      logger.debug("[TheBoringEnglish Provider] getOfficialTranslationByTime info:", e?.message || e);
     }
     return null;
+  }
+
+  async #applyOfficialTranslationIfAvailable() {
+    if (!this.#captionTracks?.length || !this.#subtitles?.length) return;
+    const { toLang } = this.#setting;
+    if (!toLang) return;
+
+    // 检查是否有字幕缺少有效翻译或正在重试失败
+    const needsOfficial = this.#subtitles.some(s => !s.translation || s.translation.includes("[Translation failed]"));
+    if (!needsOfficial) return;
+
+    logger.info("Youtube Provider: Applying official translation track to existing subtitles...");
+    const officialSubtitles = await this.getOfficialTranslationByTime(toLang, this.#subtitles);
+    if (officialSubtitles && officialSubtitles.length > 0) {
+      this.#subtitles = officialSubtitles;
+      if (this.#managerInstance) {
+        this.#managerInstance.updateFormattedSubtitles?.(officialSubtitles);
+      }
+      if (this.#subtitleListManager) {
+        const bilingualSubtitles = officialSubtitles.map(sub => ({
+          start: sub.start,
+          end: sub.end,
+          text: sub.text,
+          translation: sub.translation || '',
+          vocab: sub.vocab || []
+        }));
+        this.#subtitleListManager?.setBilingualSubtitles?.(bilingualSubtitles);
+      }
+    }
   }
 
   hasOfficialEnglishSubtitle() {
@@ -750,6 +986,11 @@ class YouTubeCaptionProvider {
   }
 
   async #handleInterceptedRequest(url, responseText) {
+    if (this.#setting.enabled === false) {
+      logger.debug("Youtube Provider: plugin is disabled, skip processing intercepted timedtext.");
+      return;
+    }
+
     const videoId = this.#videoId;
     console.log("[TheBoringEnglish Provider] handleInterceptedRequest triggered. videoId:", videoId, "url:", url);
     if (!videoId) {
@@ -763,8 +1004,19 @@ class YouTubeCaptionProvider {
       return;
     }
 
-    const lang = potUrl.searchParams.get("lang");
+    const lang = potUrl.searchParams.get("lang") || "";
     const kind = potUrl.searchParams.get("kind") || "";
+
+    // 核心准则：只有当用户在 YouTube 中使用英文字幕时，才激活 TBE 插件功能
+    // 如果用户在 YouTube 中主动选择非英文字幕（如官方中文、日文等），则完全不干预，100% 恢复 YouTube 原生播放器渲染
+    if (!lang.toLowerCase().startsWith("en")) {
+      logger.info(`Youtube Provider: User selected non-English subtitle '${lang}'. Restoring native YouTube subtitles.`);
+      this.#destroyManager();
+      this.#showYtCaption();
+      this.#currentLang = lang;
+      this.#currentKind = kind;
+      return;
+    }
 
     if (this.#flatEvents.length && lang === this.#currentLang && kind === this.#currentKind) {
       logger.debug("Youtube Provider: video track already processed:", videoId);
@@ -793,8 +1045,10 @@ class YouTubeCaptionProvider {
 
       let captionTrack = null;
       try {
-        this.#captionTracks = await this.#getCaptionTracks(videoId);
-        captionTrack = this.#findCaptionTrack(this.#captionTracks);
+        if (!this.#captionTracks || this.#captionTracks.length === 0) {
+          this.#captionTracks = await this.#getCaptionTracks(videoId);
+        }
+        captionTrack = this.#findCaptionTrack(this.#captionTracks, lang);
       } catch (err) {
         logger.debug("Youtube Provider: Failed to get captionTracks, trying fallback...", err);
       }
@@ -810,14 +1064,25 @@ class YouTubeCaptionProvider {
         return;
       }
 
-      const lang = potUrl.searchParams.get("lang");
-      const fromLang = this.#getFromLang(lang);
-      let toLang = this.#setting.toLang;
+      const effectiveLang = captionTrack?.languageCode || capUrl.searchParams.get("lang") || potUrl.searchParams.get("lang");
+      const fromLang = this.#getFromLang(effectiveLang);
+      const requestedLang = potUrl.searchParams.get("lang");
+      
+      let toLang = this.#setting.toLang || "zh-CN";
+
+      // 如果当前视频原声是英文，而用户在 YouTube 播放器 CC 设置中选择了某种非英文语言（例如中文 zh-CN / zh-TW / ja 等），
+      // 或当前配置的目标语言为英文（English-to-English 无意义），则智能将目标语言定向为用户选中的语言或默认 zh-CN
+      if (fromLang.startsWith("en") && requestedLang && !requestedLang.startsWith("en")) {
+        toLang = requestedLang;
+        this.#setting.toLang = requestedLang;
+      } else if (fromLang.startsWith("en") && (!toLang || toLang.startsWith("en"))) {
+        toLang = "zh-CN";
+        this.#setting.toLang = "zh-CN";
+      }
 
       console.log(
-        `[TheBoringEnglish Provider] lang: ${lang}, fromLang: ${fromLang}, toLang: ${toLang}`
+        `[TheBoringEnglish Provider] effectiveLang: ${effectiveLang}, fromLang: ${fromLang}, toLang: ${toLang}`
       );
-      // 不再强制相同时回退到 zh-CN，以支持用户选 English 作为目标语言（做纯英文断句或不翻译对照）
 
       const flatEvents = this.#genFlatEvents(events);
       if (!flatEvents?.length) {
@@ -888,7 +1153,7 @@ class YouTubeCaptionProvider {
   #reProcessEvents() {
     this.#progressed = 0;
     this.#subtitles = [];
-    this.#remainingChunks = [];
+    this.#chunks = [];
     this.#isProcessingChunk = false;
 
     const videoId = this.#videoId;
@@ -897,7 +1162,6 @@ class YouTubeCaptionProvider {
     if (!videoId || !flatEvents.length) {
       return;
     }
-
 
     this.#destroyManager();
 
@@ -928,7 +1192,7 @@ class YouTubeCaptionProvider {
 
     // potUrl.searchParams.get("kind") === "asr"
     if (isAISegment && segApiSetting) {
-      logger.info("Youtube Provider: Starting AI ...");
+      logger.info("Youtube Provider: Starting AI segmentation with full timeline base...");
 
       const eventChunks = this.#splitEventsIntoChunks(flatEvents, chunkLength);
 
@@ -936,29 +1200,25 @@ class YouTubeCaptionProvider {
         return subtitlesFallback();
       }
 
-      const firstChunkEvents = eventChunks[0];
-      const firstBatchSubtitles = await this.#aiSegment({
-        videoId,
-        chunkEvents: firstChunkEvents,
-        fromLang,
-        toLang,
-        segApiSetting,
-      });
+      // 构建结构化分块列表，支持快速精准索引和跳过调度
+      this.#chunks = eventChunks.map((chunkEvents, index) => ({
+        id: index,
+        start: chunkEvents[0]?.start ?? 0,
+        end: chunkEvents[chunkEvents.length - 1]?.end ?? 0,
+        events: chunkEvents,
+        status: "pending",
+      }));
 
-      if (!firstBatchSubtitles?.length) {
-        return subtitlesFallback();
-      }
+      // 注册 timeupdate 与 seeked 事件监听
+      this.#setupEventListeners();
 
-      if (eventChunks.length > 1) {
-        this.#remainingChunks = eventChunks.slice(1);
-        this.#setupTimeUpdateListener();
+      // 异步立即触发当前播放时间对应 chunk 的调度与翻译，不阻塞全量初始列表的渲染
+      setTimeout(() => {
+        this.#scheduleNextChunk();
+      }, 0);
 
-        const progressed = Math.floor(100 / eventChunks.length);
-
-        return [firstBatchSubtitles, progressed];
-      } else {
-        return [firstBatchSubtitles, 100];
-      }
+      // 返回全量基础字幕，使右侧面板和播放器底座从一开始就具备完整的时间轴与节点
+      return [fallbackSubtitles, 0];
     }
 
     return subtitlesFallback();
@@ -1002,7 +1262,7 @@ class YouTubeCaptionProvider {
           translation: sub.translation || '',
           vocab: sub.vocab || []
         }));
-        this.#subtitleListManager.setBilingualSubtitles(updatedBilingualSubtitles);
+        this.#subtitleListManager?.setBilingualSubtitles?.(updatedBilingualSubtitles);
       };
       
       // 创建包含翻译信息的双语字幕数据（初始可能没有翻译）
@@ -1015,7 +1275,7 @@ class YouTubeCaptionProvider {
       }));
       
       // 将双语字幕数据传递给字幕列表
-      this.#subtitleListManager.setBilingualSubtitles(bilingualSubtitles);
+      this.#subtitleListManager?.setBilingualSubtitles?.(bilingualSubtitles);
     }
     
     this.#managerInstance.start();
@@ -1035,7 +1295,7 @@ class YouTubeCaptionProvider {
   }
 
   #destroyManager() {
-    this.#removeTimeUpdateListener();
+    this.#removeEventListeners();
     // 清理按钞定期检查定时器，防止内存泄漏
     if (this.#buttonCheckInterval !== null) {
       clearInterval(this.#buttonCheckInterval);
@@ -1470,30 +1730,41 @@ class YouTubeCaptionProvider {
     logger.info("Youtube Provider: All subtitle chunks processed.");
   }
 
-  #setupTimeUpdateListener() {
-    this.#removeTimeUpdateListener();
+  #setupEventListeners() {
+    this.#removeEventListeners();
     const videoEl = this.#videoEl;
     if (videoEl) {
       videoEl.addEventListener("timeupdate", this.#handleTimeUpdate);
-      logger.info("Youtube Provider: TimeUpdate listener added for pre-fetching AI subtitles.");
+      videoEl.addEventListener("seeked", this.#handleSeeked);
+      logger.info("Youtube Provider: TimeUpdate and Seeked listeners added for AI subtitles.");
     }
   }
 
-  #removeTimeUpdateListener() {
+  #removeEventListeners() {
     const videoEl = this.#videoEl;
     if (videoEl) {
       videoEl.removeEventListener("timeupdate", this.#handleTimeUpdate);
-      logger.info("Youtube Provider: TimeUpdate listener removed.");
+      videoEl.removeEventListener("seeked", this.#handleSeeked);
+      logger.info("Youtube Provider: Event listeners removed.");
     }
   }
 
-  #handleTimeUpdate = () => {
-    if (!this.#remainingChunks || this.#remainingChunks.length === 0) {
-      this.#removeTimeUpdateListener();
-      return;
-    }
+  #handleSeeked = () => {
+    logger.info("Youtube Provider: Seeked event detected, re-scheduling AI chunk priority.");
+    this.#scheduleNextChunk(true);
+  };
 
-    if (this.#isProcessingChunk) {
+  #handleTimeUpdate = () => {
+    this.#scheduleNextChunk(false);
+  };
+
+  /**
+   * 调度下一个需要翻译的 chunk
+   * @param {boolean} isSeek - 是否由用户拖动/跳转触发
+   */
+  #scheduleNextChunk(isSeek = false) {
+    if (!this.#chunks || this.#chunks.length === 0) {
+      this.#removeEventListeners();
       return;
     }
 
@@ -1501,77 +1772,130 @@ class YouTubeCaptionProvider {
     if (!videoEl) return;
 
     const currentTimeMs = videoEl.currentTime * 1000;
-    // 提前 60 秒进行预加载翻译（大模型处理通常需要几秒，所以提前60秒是合理的，正好也等于提前 20 条左右的字幕段）
-    const lookAheadMs = 60 * 1000;
+    const lookAheadMs = 60 * 1000; // 提前 60 秒进行预加载翻译
 
-    const nextChunk = this.#remainingChunks[0];
-    const nextChunkStart = nextChunk[0]?.start;
-
-    if (nextChunkStart !== undefined && currentTimeMs + lookAheadMs >= nextChunkStart) {
-      // 触发这一块的翻译，并将其移出待处理队列
-      const chunkToProcess = this.#remainingChunks.shift();
-      this.#processSingleChunk(chunkToProcess);
+    // 1. 跳过/标记历史 chunk：
+    // 如果用户快进跳过了某些 pending chunk（当前时间已经超过其结束时间），将其标记为 skipped，避免浪费 API 调用
+    for (const chunk of this.#chunks) {
+      if (chunk.status === "pending" && chunk.end < currentTimeMs) {
+        chunk.status = "skipped";
+        logger.debug(`Youtube Provider: Skipping past chunk ${chunk.id} [${chunk.start} -> ${chunk.end}] due to jump/progress.`);
+      } else if (chunk.status === "skipped" && chunk.end >= currentTimeMs && chunk.start <= currentTimeMs + lookAheadMs) {
+        // 如果用户倒退跳转回以前跳过的段落，重新激活为 pending
+        chunk.status = "pending";
+      }
     }
-  };
 
-  async #processSingleChunk(chunkEvents) {
-    if (!chunkEvents || chunkEvents.length === 0) return;
-    
+    // 如果当前已有 chunk 正在处理中
+    if (this.#isProcessingChunk) {
+      if (!isSeek) return;
+    }
+
+    // 2. 查找当前最急需处理的 chunk：
+    // 优先级 1：包含当前播放时间的 pending chunk
+    let targetChunk = this.#chunks.find(
+      (c) => c.status === "pending" && c.start <= currentTimeMs && c.end >= currentTimeMs
+    );
+
+    // 优先级 2：当前时间之后的、在 lookAheadMs 范围内的最近 pending chunk
+    if (!targetChunk) {
+      targetChunk = this.#chunks.find(
+        (c) => c.status === "pending" && c.start > currentTimeMs && c.start <= currentTimeMs + lookAheadMs
+      );
+    }
+
+    if (!targetChunk) {
+      return;
+    }
+
+    // 3. 触发当前 targetChunk 的处理
+    this.#processChunkById(targetChunk.id);
+  }
+
+  async #processChunkById(chunkId) {
+    const chunk = this.#chunks.find((c) => c.id === chunkId);
+    if (!chunk || chunk.status !== "pending") return;
+
+    chunk.status = "processing";
     this.#isProcessingChunk = true;
+
     const videoId = this.#videoId;
     const fromLang = this.#fromLang;
     const toLang = this.#setting.toLang;
     const segApiSetting = this.#setting.segApiSetting;
     const sessionId = this.#processingSessionId;
 
-    logger.info(`Youtube Provider: Pre-fetching AI subtitle chunk with start time: ${chunkEvents[0].start}`);
+    logger.info(`Youtube Provider: Processing AI subtitle chunk ${chunk.id} [${chunk.start} -> ${chunk.end}]`);
 
     let subtitlesForThisChunk = [];
 
     try {
       const aiSubtitles = await this.#aiSegment({
         videoId,
-        chunkEvents,
+        chunkEvents: chunk.events,
         fromLang,
         toLang,
         segApiSetting,
       });
 
-      if (this.#processingSessionId !== sessionId) {
-        logger.info("Youtube Provider: Session changed while pre-fetching chunk, aborting.");
+      if (this.#processingSessionId !== sessionId || videoId !== this.#videoId) {
+        logger.info("Youtube Provider: Session or video changed while fetching chunk, aborting.");
+        chunk.status = "pending";
         this.#isProcessingChunk = false;
         return;
       }
 
       if (aiSubtitles?.length > 0) {
         subtitlesForThisChunk = aiSubtitles;
+        chunk.status = "completed";
       } else {
-        subtitlesForThisChunk = this.#formatSubtitles(chunkEvents, fromLang);
+        logger.debug(`Youtube Provider: AI segment empty for chunk ${chunk.id}, using fallback`);
+        subtitlesForThisChunk = this.#formatSubtitles(chunk.events, fromLang);
+        chunk.status = "completed";
       }
     } catch (chunkError) {
-      logger.warn("Youtube Provider: pre-fetch chunk error", chunkError);
-      subtitlesForThisChunk = this.#formatSubtitles(chunkEvents, fromLang);
+      logger.warn(`Youtube Provider: Error processing chunk ${chunk.id}`, chunkError);
+      subtitlesForThisChunk = this.#formatSubtitles(chunk.events, fromLang);
+      chunk.status = "completed";
     }
 
+    this.#isProcessingChunk = false;
+
     if (this.#processingSessionId !== sessionId || videoId !== this.#videoId) {
-      logger.info("Youtube Provider: Session or video changed after fetching chunk, aborting.");
-      this.#isProcessingChunk = false;
       return;
     }
 
     if (subtitlesForThisChunk.length > 0) {
-      this.#subtitles.push(...subtitlesForThisChunk);
-      
-      // 更新翻译进度（进度数：当前已翻译行数比例）
-      const totalEstimated = this.#subtitles.length + (this.#remainingChunks.length * 15); // 估算总条数
-      this.#progressed = Math.min(99, Math.floor((this.#subtitles.length * 100) / totalEstimated));
+      // 在底层全量字幕中替换当前时间段的数据
+      this.#replaceSubtitlesRange(subtitlesForThisChunk, chunk.start, chunk.end);
 
+      // 更新翻译进度（已完成的 chunk 比例）
+      const completedCount = this.#chunks.filter((c) => c.status === "completed").length;
+      this.#progressed = Math.min(100, Math.floor((completedCount * 100) / this.#chunks.length));
+
+      // 同步更新到 BilingualSubtitleManager
       if (this.#managerInstance) {
-        this.#managerInstance.appendSubtitles(subtitlesForThisChunk);
+        this.#managerInstance.replaceSubtitlesRange(subtitlesForThisChunk, chunk.start, chunk.end);
       }
     }
 
-    this.#isProcessingChunk = false;
+    // 处理完当前 chunk 后，继续尝试调度下一个即将播放的 chunk
+    this.#scheduleNextChunk();
+  }
+
+  #replaceSubtitlesRange(newSubs, startTime, endTime) {
+    if (!newSubs || newSubs.length === 0) return;
+
+    this.#subtitles = this.#subtitles.filter(
+      (sub) => sub.end < startTime - 100 || sub.start > endTime + 100
+    );
+    this.#subtitles.push(...newSubs);
+    this.#subtitles.sort((a, b) => a.start - b.start);
+    this.#subtitles = this.#subtitles.filter((sub, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr[idx - 1];
+      return !(sub.start === prev.start && sub.text === prev.text);
+    });
   }
 
   #createNotificationElement() {

@@ -801,7 +801,9 @@ export class BilingualSubtitleManager {
       p2.style.cssText = this.#setting.translationStyle;
       p2.textContent = truncateWords(subtitle.translation) || "...";
 
-      if (this.#setting.isBilingual) {
+      const isSameText = !subtitle.translation || subtitle.text?.trim() === subtitle.translation?.trim();
+
+      if (this.#setting.isBilingual && !isSameText) {
         this.#captionWindowEl.replaceChildren(p1, p2);
       } else {
         this.#captionWindowEl.replaceChildren(p1);
@@ -884,7 +886,12 @@ export class BilingualSubtitleManager {
    * @param {number} currentTimeMs
    */
   #triggerTranslations(currentTimeMs) {
-    const { preTrans = 90 } = this.#setting;
+    const { preTrans = 90, fromLang, toLang } = this.#setting;
+    const isSameLanguage = fromLang && toLang && fromLang.split("-")[0].toLowerCase() === toLang.split("-")[0].toLowerCase();
+    if (isSameLanguage) {
+      return;
+    }
+
     const lookAheadMs = preTrans * 1000;
     const now = Date.now();
     const cooldownMs = 15000; // 冷却时间 15 秒，避免频繁重复请求失败的接口
@@ -911,27 +918,40 @@ export class BilingualSubtitleManager {
    * @param {object} subtitle - 需要翻译的字幕对象。
    */
   async #translateAndStore(subtitle) {
+    // 1. 如果已有非失败的官方或缓存翻译，直接跳过
+    if (subtitle.translation && !subtitle.translation.includes("[Translation failed]")) {
+      return;
+    }
+
+    // 2. 如果源语言和目标语言是同种语言，直接复用，不发起网络请求
+    const { fromLang, toLang, apiSetting } = this.#setting;
+    const isSameLanguage = fromLang && toLang && fromLang.split("-")[0].toLowerCase() === toLang.split("-")[0].toLowerCase();
+    if (isSameLanguage) {
+      subtitle.translation = subtitle.text;
+      subtitle.isTranslating = false;
+      subtitle.retryable = false;
+      return;
+    }
+
     subtitle.isTranslating = true;
     subtitle.lastTranslateTime = Date.now(); // 记录本次尝试翻译的时间戳以进行冷却控制
     try {
-      const { fromLang, toLang, apiSetting } = this.#setting;
       let trText = "";
-      if (fromLang && toLang && fromLang.split("-")[0].toLowerCase() === toLang.split("-")[0].toLowerCase()) {
-        trText = subtitle.text;
-      } else {
-        const res = await apiTranslate({
-          text: subtitle.text,
-          fromLang,
-          toLang,
-          apiSetting,
-        });
-        trText = res?.trText;
-      }
+      let vocab = [];
+      const res = await apiTranslate({
+        text: subtitle.text,
+        fromLang,
+        toLang,
+        apiSetting,
+      });
+      trText = res?.trText;
+      vocab = res?.vocab || [];
+
       if (!trText) {
         throw new Error("Empty translation result");
       }
       subtitle.translation = trText;
-      subtitle.vocab = res?.vocab || [];
+      subtitle.vocab = vocab;
       subtitle.retryable = false; // 成功后清除重试标记
       subtitle.retryCount = 0; // 重置重试次数
     } catch (error) {
@@ -963,6 +983,43 @@ export class BilingualSubtitleManager {
   }
 
   /**
+   * 按时间范围替换/更新字幕
+   * @param {Array<object>} newSubtitlesChunk - 新的字幕数据块
+   * @param {number} startTime - 该块的起始时间 (ms)
+   * @param {number} endTime - 该块的结束时间 (ms)
+   */
+  replaceSubtitlesRange(newSubtitlesChunk, startTime, endTime) {
+    if (!newSubtitlesChunk || newSubtitlesChunk.length === 0) {
+      return;
+    }
+
+    logger.info(
+      `Bilingual Subtitle Manager: Replacing subtitles in range [${startTime}, ${endTime}] with ${newSubtitlesChunk.length} new items...`
+    );
+
+    // 剔除旧范围内重叠的字幕（带 100ms 容差）
+    this.#formattedSubtitles = this.#formattedSubtitles.filter(
+      (sub) => sub.end < startTime - 100 || sub.start > endTime + 100
+    );
+
+    this.#formattedSubtitles.push(...newSubtitlesChunk);
+    this.#formattedSubtitles.sort((a, b) => a.start - b.start);
+    this.#formattedSubtitles = this.#formattedSubtitles.filter((sub, idx, arr) => {
+      if (idx === 0) return true;
+      const prev = arr[idx - 1];
+      return !(sub.start === prev.start && sub.text === prev.text);
+    });
+
+    this.#currentSubtitleIndex = -1;
+    this.onTimeUpdate();
+
+    // 通知外部组件字幕已更新
+    if (this.onSubtitleUpdate) {
+      this.onSubtitleUpdate(this.#formattedSubtitles);
+    }
+  }
+
+  /**
    * 追加新的字幕
    * @param {Array<object>} newSubtitlesChunk - 新的、要追加的字幕数据块。
    */
@@ -986,6 +1043,20 @@ export class BilingualSubtitleManager {
     this.onTimeUpdate();
     
     // 通知外部组件字幕已更新
+    if (this.onSubtitleUpdate) {
+      this.onSubtitleUpdate(this.#formattedSubtitles);
+    }
+  }
+
+  /**
+   * 全量更新/重置字幕数据（例如匹配到官方翻译轨道时直接注入）
+   * @param {Array<object>} newSubtitles 
+   */
+  updateFormattedSubtitles(newSubtitles) {
+    if (!newSubtitles || newSubtitles.length === 0) return;
+    this.#formattedSubtitles = newSubtitles;
+    this.#currentSubtitleIndex = -1;
+    this.onTimeUpdate();
     if (this.onSubtitleUpdate) {
       this.onSubtitleUpdate(this.#formattedSubtitles);
     }

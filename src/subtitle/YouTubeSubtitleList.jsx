@@ -105,7 +105,7 @@ export class YouTubeSubtitleList {
             logger.info(`Synced word: ${word} to TheBoringEnglish Web`);
           }
         } catch (err) {
-          logger.error(`Failed to sync word ${word} to TheBoringEnglish Web:`, err);
+          logger.debug(`Failed to sync word ${word} to TheBoringEnglish Web:`, err?.message || err);
         }
       })();
     }
@@ -644,6 +644,9 @@ export class YouTubeSubtitleList {
 
     if (this.subtitleListEl && this.subtitleListUl) {
       this.renderSubtitleItems();
+      if (this.loopAutoScroll !== null) {
+        this._scrollToCurrentTime(true, "instant");
+      }
     } else {
       this.createSubtitleList();
       this.setupEventListeners();
@@ -708,7 +711,8 @@ export class YouTubeSubtitleList {
 
         const translationEl = document.createElement("div");
         translationEl.className = "theboringenglish-youtube-translation";
-        if (sub.translation) {
+        const isSameText = !sub.translation || sub.text?.trim().toLowerCase() === sub.translation?.trim().toLowerCase();
+        if (sub.translation && !isSameText && !sub.translation.includes("[Translation failed]")) {
           translationEl.textContent = sub.translation;
           translationEl.style.display = "block";
         } else {
@@ -1108,39 +1112,39 @@ export class YouTubeSubtitleList {
     // 一键同步按钮
     const importBtn = document.createElement("button");
     importBtn.id = "theboringenglish-import-btn";
+    importBtn.title = "Sync subtitles & vocabulary to theboringenglish.com";
 
-    // 根据 uiLang 极致缩短按钮文本，防止极小侧栏拥挤折行
     const IMPORT_SHORT_LABELS = {
-      zh: "一键同步",
-      zh_TW: "一鍵同步",
-      ja: "同期保存",
-      ko: "동기화",
-      fr: "Synchro",
-      de: "Sync",
-      es: "Sincronizar",
-      pt: "Sincronizar",
-      it: "Sincronizza",
-      ru: "Синхр.",
-      vi: "Đồng bộ",
+      zh: "同步至 theboringenglish.com",
+      zh_TW: "同步至 theboringenglish.com",
+      ja: "theboringenglish.com に同期",
+      ko: "theboringenglish.com에 동기화",
+      fr: "Sync to theboringenglish.com",
+      de: "Sync to theboringenglish.com",
+      es: "Sync to theboringenglish.com",
+      pt: "Sync to theboringenglish.com",
+      it: "Sync to theboringenglish.com",
+      ru: "Sync to theboringenglish.com",
+      vi: "Sync to theboringenglish.com",
     };
     
     chrome.storage.local.get(["setting"], (result) => {
       const lang = result?.setting?.uiLang || "en";
-      importBtn.textContent = IMPORT_SHORT_LABELS[lang] || "Sync to Web";
+      importBtn.textContent = IMPORT_SHORT_LABELS[lang] || "Sync to theboringenglish.com";
     });
-    importBtn.textContent = "Sync to Web"; // 默认
+    importBtn.textContent = "Sync to theboringenglish.com"; // 默认
 
     Object.assign(importBtn.style, {
       background: "linear-gradient(135deg, #6366f1, #4f46e5)",
       color: "#ffffff",
       border: "none",
       cursor: "pointer",
-      fontSize: "10.5px",
+      fontSize: "11px",
       fontWeight: "600",
-      padding: "4px 8px",
+      padding: "4px 10px",
       borderRadius: "6px",
       transition: "all 0.18s ease",
-      fontFamily: "'Inter', -apple-system, sans-serif",
+      fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
       flexShrink: "0",
       whiteSpace: "nowrap",
       height: "26px",
@@ -1308,7 +1312,7 @@ export class YouTubeSubtitleList {
       const toLang = result?.setting?.subtitleSetting?.toLang || result?.setting?.toLang || "zh-CN";
       
       // 更新一键同步文本
-      importBtn.textContent = IMPORT_SHORT_LABELS[uiLang] || "Sync to Web";
+      importBtn.textContent = IMPORT_SHORT_LABELS[uiLang] || "Sync to theboringenglish.com";
       
       // 清空并重新构建多语言菜单
       dropMenu.innerHTML = "";
@@ -1585,6 +1589,9 @@ export class YouTubeSubtitleList {
     this.container.addEventListener("mouseenter", () => this.turnOffAutoSub());
     this.container.addEventListener("mouseleave", () => this.turnOnAutoSub());
     this.videoEl.addEventListener("ended", () => this.turnOffAutoSub());
+    this.videoEl.addEventListener("seeked", () => {
+      this._scrollToCurrentTime(true, "instant");
+    });
     this._observeTheme();
 
     if (this.subtitleListEl) {
@@ -1593,85 +1600,104 @@ export class YouTubeSubtitleList {
     }
   }
 
+  /**
+   * 精准滚动并高亮到当前视频时间对应的字幕条目
+   * @param {boolean} force - 是否强制滚动对齐（忽略与上次 index 相同）
+   * @param {string} behavior - 滚动方式 ("instant" | "smooth")
+   */
+  _scrollToCurrentTime(force = false, behavior = "instant") {
+    if (!this.videoEl || this.activeTab !== 'subtitles' || !this.subtitleListEl) return;
+
+    const currentTimeMs = this.videoEl.currentTime * 1000;
+    let currentIndex = -1;
+
+    if (this.bilingualSubtitles.length > 0) {
+      const subs = this.bilingualSubtitles;
+      // 使用二分查找快速命中当前时间区间
+      let lo = 0;
+      let hi = subs.length - 1;
+      let closestBefore = -1;
+
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        const sub = subs[mid];
+        if (currentTimeMs >= sub.start && currentTimeMs <= sub.end) {
+          currentIndex = mid;
+          break;
+        } else if (currentTimeMs < sub.start) {
+          hi = mid - 1;
+        } else {
+          closestBefore = mid;
+          lo = mid + 1;
+        }
+      }
+
+      if (currentIndex === -1 && closestBefore !== -1) {
+        currentIndex = closestBefore;
+      }
+    } else if (this.subtitleDataTime.length > 0) {
+      const closestTime = this.getClosest(this.subtitleDataTime, currentTimeMs);
+      currentIndex = this.subtitleDataTime.indexOf(closestTime);
+    }
+
+    if (currentIndex === -1) return;
+
+    if (force || currentIndex !== this.lastScrolledIndex) {
+      this.lastScrolledIndex = currentIndex;
+      const s = this._styles;
+
+      const allItems = this.subtitleListEl.querySelectorAll(".theboringenglish-youtube-item");
+      allItems.forEach((el) => {
+        el.classList.remove("theboringenglish-active");
+        el.style.backgroundColor = "transparent";
+        el.style.borderLeftColor = "transparent";
+
+        const time = el.querySelector(".theboringenglish-time-badge");
+        if (time) time.style.color = s.textTime;
+
+        const original = el.querySelector(".theboringenglish-youtube-original");
+        if (original) {
+          original.style.color = s.textEn;
+          original.style.fontWeight = "500";
+        }
+
+        const trans = el.querySelector(".theboringenglish-youtube-translation");
+        if (trans) trans.style.color = s.textZh;
+      });
+
+      const liElement = this.subtitleListEl.querySelector(`#theboringenglish-youtube-item-${currentIndex}`);
+      if (liElement) {
+        liElement.classList.add("theboringenglish-active");
+        liElement.style.backgroundColor = s.bgActive;
+        liElement.style.borderLeftColor = s.primary;
+
+        const time = liElement.querySelector(".theboringenglish-time-badge");
+        if (time) time.style.color = s.textTimeActive;
+
+        const original = liElement.querySelector(".theboringenglish-youtube-original");
+        if (original) {
+          original.style.color = s.textEnActive;
+          original.style.fontWeight = "600";
+        }
+
+        const trans = liElement.querySelector(".theboringenglish-youtube-translation");
+        if (trans) trans.style.color = s.textZhActive;
+
+        const scrollContainer = this.subtitleListEl.querySelector("div");
+        if (scrollContainer) {
+          const targetTop = liElement.offsetTop - scrollContainer.clientHeight / 2 + liElement.clientHeight / 2;
+          scrollContainer.scrollTo({ top: targetTop, behavior });
+        }
+      }
+    }
+  }
+
   turnOnAutoSub() {
     this.turnOffAutoSub();
-    const s = this._styles;
+    this._scrollToCurrentTime(true, "instant");
     this.loopAutoScroll = setInterval(() => {
-      if (!this.videoEl || this.activeTab !== 'subtitles') return;
-      const currentTimeMs = this.videoEl.currentTime * 1000;
-      let currentIndex = -1;
-
-      if (this.bilingualSubtitles.length > 0) {
-        for (let i = 0; i < this.bilingualSubtitles.length; i++) {
-          const sub = this.bilingualSubtitles[i];
-          if (currentTimeMs >= sub.start && currentTimeMs <= sub.end) {
-            currentIndex = i;
-            break;
-          }
-        }
-        if (currentIndex === -1) {
-          for (let i = this.bilingualSubtitles.length - 1; i >= 0; i--) {
-            if (currentTimeMs >= this.bilingualSubtitles[i].start) {
-              currentIndex = i;
-              break;
-            }
-          }
-        }
-      } else if (this.subtitleDataTime.length > 0) {
-        const closestTime = this.getClosest(this.subtitleDataTime, currentTimeMs);
-        currentIndex = this.subtitleDataTime.indexOf(closestTime);
-      }
-
-      if (this.subtitleListEl && currentIndex !== -1) {
-        if (currentIndex !== this.lastScrolledIndex) {
-          this.lastScrolledIndex = currentIndex;
-
-          const allItems = this.subtitleListEl.querySelectorAll(".theboringenglish-youtube-item");
-          allItems.forEach((el) => {
-            el.classList.remove("theboringenglish-active");
-            el.style.backgroundColor = "transparent";
-            el.style.borderLeftColor = "transparent";
-
-            const time = el.querySelector(".theboringenglish-time-badge");
-            if (time) time.style.color = s.textTime;
-
-            const original = el.querySelector(".theboringenglish-youtube-original");
-            if (original) {
-              original.style.color = s.textEn;
-              original.style.fontWeight = "500";
-            }
-
-            const trans = el.querySelector(".theboringenglish-youtube-translation");
-            if (trans) trans.style.color = s.textZh;
-          });
-
-          const liElement = this.subtitleListEl.querySelector(`#theboringenglish-youtube-item-${currentIndex}`);
-          if (liElement) {
-            liElement.classList.add("theboringenglish-active");
-            liElement.style.backgroundColor = s.bgActive;
-            liElement.style.borderLeftColor = s.primary;
-
-            const time = liElement.querySelector(".theboringenglish-time-badge");
-            if (time) time.style.color = s.textTimeActive;
-
-            const original = liElement.querySelector(".theboringenglish-youtube-original");
-            if (original) {
-              original.style.color = s.textEnActive;
-              original.style.fontWeight = "600";
-            }
-
-            const trans = liElement.querySelector(".theboringenglish-youtube-translation");
-            if (trans) trans.style.color = s.textZhActive;
-
-            const scrollContainer = this.subtitleListEl.querySelector("div");
-            if (scrollContainer) {
-              const targetTop = liElement.offsetTop - scrollContainer.clientHeight / 2 + liElement.clientHeight / 2;
-              scrollContainer.scrollTo({ top: targetTop, behavior: "instant" });
-            }
-          }
-        }
-      }
-    }, 100);
+      this._scrollToCurrentTime(false, "instant");
+    }, 150);
   }
 
   turnOffAutoSub() {

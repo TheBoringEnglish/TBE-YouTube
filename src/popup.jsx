@@ -88,18 +88,7 @@ const LANG_NATIVE_NAMES = {
 };
 
 function StatusDot({ status }) {
-  const colors = { ok: "#c27c2a", warn: "#d97706", error: "#dc2626" };
-  return (
-    <span style={{
-      display: "inline-block",
-      width: 8, height: 8,
-      borderRadius: "50%",
-      background: colors[status] || colors.ok,
-      marginRight: 6,
-      boxShadow: `0 0 6px ${colors[status] || colors.ok}88`,
-      flexShrink: 0,
-    }} />
-  );
+  return <span className={`status-dot ${status || "ok"}`} />;
 }
 
 function App() {
@@ -418,7 +407,7 @@ function App() {
             {window.location.protocol === "chrome-extension:" && !window.location.search.includes("mode=tab") && (
               <button
                 onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?mode=tab") })}
-                title={uiLang === "zh" || uiLang === "zh_TW" ? "在独立标签页中打开（防止自动关闭）" : "Open in new tab (prevent auto-closing)"}
+                title={i18n("open_in_tab")}
                 style={{
                   background: "none",
                   border: "none",
@@ -491,150 +480,139 @@ function App() {
       {/* ===== Translation Settings ===== */}
       {activeSection === "translation" && (
         <section className="config-card animate">
-          <div className="form-group">
-            <label className="form-label">{i18n("target_lang")}</label>
-            <select
-              className="input-field"
-              value={targetLang}
-              onChange={(e) => {
-                const val = e.target.value;
-                setTargetLang(val);
-                const mapped = LANG_MAP[val] || "en";
-                setUiLang(mapped);
-              }}
-            >
-              {OPT_LANGS_TO.map(([code, name]) => {
-                const translated = LANG_DISPLAY[code]?.[uiLang] || name;
-                const native = LANG_NATIVE_NAMES[code];
-                const displayName = (native && translated !== native)
-                  ? `${translated} (${native})`
-                  : translated;
-                return (
-                  <option key={code} value={code}>
-                    {displayName}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          <div className="divider" />
-
-          <div className="form-group">
-            <label className="form-label">{i18n("translate_service")}</label>
-            <select
-              className="input-field"
-              value={selectedSlug}
-              onChange={(e) => setSelectedSlug(e.target.value)}
-            >
-              {Object.entries(TRANS_CATEGORIES).map(([key, cat]) => {
-                const items = apis.filter(a => cat.types.has(a.apiType));
-                if (items.length === 0) return null;
-                return (
-                  <optgroup key={key} label={catLabel[key]}>
-                    {items.map(api => (
-                      <option key={api.apiSlug} value={api.apiSlug}>
-                        {api.name || api.apiType}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </div>
-
-          {/* Status badge */}
-          <div className="engine-status animate-in">
-            <StatusDot status={needsApiKey(selectedSlug) && !selectedApi?.key ? "warn" : "ok"} />
-            <span className="status-text">
-              {needsApiKey(selectedSlug) && !selectedApi?.key
-                ? `${selectedSlug} — ${i18n("api_key_required")}`
-                : `${selectedSlug} — ${i18n("service_ready")}`}
-            </span>
-          </div>
-
-          {/* API Key / Model / Endpoint */}
-          {needsApiKey(selectedSlug) && selectedApi && (
-            <div className="credentials-card animate-in">
-              <div className="form-group">
-                <label className="form-label">API Key</label>
-                <input
-                  type="password"
-                  className="input-field"
-                  placeholder={`${selectedSlug} API Key`}
-                  value={selectedApi.key || ""}
-                  onChange={(e) => updateApiField(selectedSlug, "key", e.target.value)}
-                />
+          {/* 插件全局主开关 Hero 卡片 */}
+          <div className={`hero-switch-card ${subEnabled ? "" : "disabled"}`}>
+            <div className="hero-switch-info">
+              <div className="hero-switch-title">
+                <span>⚡</span> {i18n("enable_plugin")}
               </div>
+              <div className="hero-switch-desc">
+                {subEnabled ? i18n("enable_plugin_active") : i18n("enable_plugin_disabled")}
+              </div>
+            </div>
+            <label className="switch-control">
+              <input
+                type="checkbox"
+                checked={subEnabled}
+                onChange={(e) => setSubEnabled(e.target.checked)}
+              />
+              <span className={`switch-track ${subEnabled ? "active" : ""}`}>
+                <span className={`switch-thumb ${subEnabled ? "active" : ""}`} />
+              </span>
+            </label>
+          </div>
 
-              {needsModel(selectedSlug) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", opacity: subEnabled ? 1 : 0.4, pointerEvents: subEnabled ? "auto" : "none", transition: "opacity 0.2s" }}>
+            {/* 目标语言 */}
+            <div className="form-group">
+              <label className="form-label">{i18n("target_lang")}</label>
+              <select
+                className="input-field"
+                value={targetLang}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTargetLang(val);
+                  const mapped = LANG_MAP[val] || "en";
+                  setUiLang(mapped);
+                }}
+              >
+                {OPT_LANGS_TO.map(([code, name]) => {
+                  const translated = LANG_DISPLAY[code]?.[uiLang] || name;
+                  const native = LANG_NATIVE_NAMES[code];
+                  const displayName = (native && translated !== native)
+                    ? `${translated} (${native})`
+                    : translated;
+                  return (
+                    <option key={code} value={code}>
+                      {displayName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="divider" />
+
+            {/* 翻译引擎 + 状态 */}
+            <div className="form-group">
+              <div className="form-label-row">
+                <label className="form-label">{i18n("translate_service")}</label>
+                <div className="status-pill">
+                  <StatusDot status={needsApiKey(selectedSlug) && !selectedApi?.key ? "warn" : "ok"} />
+                  <span>
+                    {needsApiKey(selectedSlug) && !selectedApi?.key
+                      ? i18n("api_key_required")
+                      : i18n("service_ready")}
+                  </span>
+                </div>
+              </div>
+              <select
+                className="input-field"
+                value={selectedSlug}
+                onChange={(e) => setSelectedSlug(e.target.value)}
+              >
+                {Object.entries(TRANS_CATEGORIES).map(([key, cat]) => {
+                  const items = apis.filter(a => cat.types.has(a.apiType));
+                  if (items.length === 0) return null;
+                  return (
+                    <optgroup key={key} label={catLabel[key]}>
+                      {items.map(api => (
+                        <option key={api.apiSlug} value={api.apiSlug}>
+                          {api.name || api.apiType}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* API Key / Model / Endpoint 配置 */}
+            {needsApiKey(selectedSlug) && selectedApi && (
+              <div className="credentials-card animate-in">
                 <div className="form-group">
-                  <label className="form-label">{i18n("model_label")}</label>
+                  <label className="form-label">API Key</label>
                   <input
-                    type="text"
+                    type="password"
                     className="input-field"
-                    placeholder={selectedApi.model || "e.g. gemini-3.1-flash-lite"}
-                    value={selectedApi.model || ""}
-                    onChange={(e) => updateApiField(selectedSlug, "model", e.target.value)}
+                    placeholder={`Enter your ${selectedSlug} API key`}
+                    value={selectedApi.key || ""}
+                    onChange={(e) => updateApiField(selectedSlug, "key", e.target.value)}
                   />
                 </div>
-              )}
 
-              {needsUrl(selectedSlug) && (
-                <div className="form-group">
-                  <label className="form-label">
-                    {i18n("endpoint_label")}
-                    <span className="form-hint"> ({i18n("endpoint_optional")})</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder={selectedApi.url || "Default endpoint"}
-                    value={selectedApi.url || ""}
-                    onChange={(e) => updateApiField(selectedSlug, "url", e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-          )}
+                {needsModel(selectedApi.apiType) && (
+                  <div className="form-group">
+                    <label className="form-label">{i18n("model_label")}</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder={selectedApi.apiType === "OpenAI" ? "gpt-4o-mini" : "gemini-3.1-flash-lite"}
+                      value={selectedApi.model || ""}
+                      onChange={(e) => updateApiField(selectedSlug, "model", e.target.value)}
+                    />
+                  </div>
+                )}
 
-          {API_SPE_TYPES.ai.has(selectedSlug) && (
-            <div className="form-group toggle-group" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", padding: "10px 0", borderTop: "1px dashed #e5e7eb" }}>
-              <div>
-                <label className="form-label" style={{ marginBottom: "2px", cursor: "pointer" }}>{i18n("ai_vocab_toggle")}</label>
-                <div style={{ fontSize: "11px", color: "#888", opacity: 0.8 }}>{i18n("ai_vocab_toggle_desc")}</div>
+                {needsUrl(selectedApi.apiType) && (
+                  <div className="form-group">
+                    <label className="form-label">
+                      {i18n("endpoint_label")} <span className="form-hint">({i18n("endpoint_optional")})</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder={selectedApi.apiType === "OpenAI" ? "https://api.openai.com/v1" : "https://generativelanguage.googleapis.com"}
+                      value={selectedApi.url || ""}
+                      onChange={(e) => updateApiField(selectedSlug, "url", e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
-              <label className="switch" style={{ position: "relative", display: "inline-block", width: "40px", height: "20px" }}>
-                <input
-                  type="checkbox"
-                  checked={aiVocabEnabled}
-                  onChange={(e) => setAiVocabEnabled(e.target.checked)}
-                  style={{ opacity: 0, width: 0, height: 0 }}
-                />
-                <span className="slider round" style={{
-                  position: "absolute",
-                  cursor: "pointer",
-                  top: 0, left: 0, right: 0, bottom: 0,
-                  backgroundColor: aiVocabEnabled ? "#c27c2a" : "#ccc",
-                  transition: ".2s",
-                  borderRadius: "20px"
-                }}>
-                  <span className="slider-button" style={{
-                    position: "absolute",
-                    content: "''",
-                    height: "14px",
-                    width: "14px",
-                    left: aiVocabEnabled ? "23px" : "3px",
-                    bottom: "3px",
-                    backgroundColor: "white",
-                    transition: ".2s",
-                    borderRadius: "50%"
-                  }} />
-                </span>
-              </label>
-            </div>
-          )}
+            )}
+          </div>
 
+          {/* 保存并刷新 */}
           <button
             className={`save-btn ${isSaved ? "success" : ""}`}
             onClick={saveSettings}

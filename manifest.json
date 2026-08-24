@@ -52,10 +52,7 @@
   },
   "permissions": ["storage", "scripting"],
   "host_permissions": [
-    "*://*.youtube.com/*",
-    "*://*.theboringenglish.com/*",
-    "*://localhost/*",
-    "*://127.0.0.1/*"
+    "<all_urls>"
   ],
   "icons": {
     "16": "images/logo16.png",

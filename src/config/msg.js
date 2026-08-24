@@ -31,6 +31,9 @@ export const MSG_CLEAR_CACHES = "clear_caches";
 export const EVENT_THEBORINGENGLISH = "event_theboringenglish_translate";
 
 export const MSG_XHR_DATA_YOUTUBE = "THEBORINGENGLISH_XHR_DATA_YOUTUBE";
+export const MSG_CAPTION_TRACKS_YOUTUBE = "THEBORINGENGLISH_CAPTION_TRACKS_YOUTUBE";
+export const MSG_REQUEST_CAPTION_TRACKS = "THEBORINGENGLISH_REQUEST_CAPTION_TRACKS";
 
 export const MSG_MENUS_PROGRESSED = "progressed";
 export const MSG_MENUS_UPDATEFORM = "updateFormData";
+

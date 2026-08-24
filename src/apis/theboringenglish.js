@@ -1,6 +1,7 @@
 /**
  * TheBoringEnglish Web 端 API 通信服务
  */
+import { fetchData } from "../libs/fetch";
 
 /**
  * 规整并映射开发环境端口：
@@ -25,6 +26,19 @@ function getApiUrl(serverUrl) {
   return url;
 }
 
+function extractDetail(err, defaultMsg = "Request failed") {
+  if (!err) return defaultMsg;
+  try {
+    const parsed = typeof err.message === "string" ? JSON.parse(err.message) : err;
+    if (parsed.response?.detail) return parsed.response.detail;
+    if (parsed.response?.message) return parsed.response.message;
+    if (parsed.response?.error) return parsed.response.error;
+    if (typeof parsed.response === "string" && parsed.response.trim()) return parsed.response;
+    if (parsed.status) return `${defaultMsg} (HTTP ${parsed.status})`;
+  } catch {}
+  return err.message || defaultMsg;
+}
+
 /**
  * 登录 TheBoringEnglish Web 端
  * @param {string} serverUrl 服务器地址
@@ -34,35 +48,37 @@ function getApiUrl(serverUrl) {
  */
 export async function loginToWeb(serverUrl, username, password) {
   const normalizedUrl = getApiUrl(serverUrl);
-  const response = await fetch(`${normalizedUrl}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      username: username.trim(),
-      password: password
-    })
-  });
+  try {
+    const data = await fetchData(
+      `${normalizedUrl}/auth/login`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password,
+        }),
+      },
+      { useCache: false, usePool: false, expect: "json" }
+    );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `登录失败 (HTTP ${response.status})`);
+    if (data?.requires_verification) {
+      throw new Error("此账号需要进行邮箱验证，请先在网页端完成激活。");
+    }
+
+    if (!data?.success || !data?.token) {
+      throw new Error(data?.message || "登录未成功，请检查账号密码");
+    }
+
+    return {
+      token: data.token,
+      user: data.user,
+    };
+  } catch (err) {
+    throw new Error(extractDetail(err, "登录失败"));
   }
-
-  const data = await response.json();
-  if (data.requires_verification) {
-    throw new Error("此账号需要进行邮箱验证，请先在网页端完成激活。");
-  }
-
-  if (!data.success || !data.token) {
-    throw new Error(data.message || "登录未成功，请检查账号密码");
-  }
-
-  return {
-    token: data.token,
-    user: data.user
-  };
 }
 
 /**
@@ -74,60 +90,63 @@ export async function loginToWeb(serverUrl, username, password) {
  */
 export async function syncWordToWeb(serverUrl, token, note) {
   const normalizedUrl = getApiUrl(serverUrl);
-  const response = await fetch(`${normalizedUrl}/notes/save`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    },
-    body: JSON.stringify(note)
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `同步单词失败 (HTTP ${response.status})`);
+  try {
+    return await fetchData(
+      `${normalizedUrl}/notes/save`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(note),
+      },
+      { useCache: false, usePool: false, expect: "json" }
+    );
+  } catch (err) {
+    throw new Error(extractDetail(err, "同步单词失败"));
   }
-
-  return response.json();
 }
 
 /**
  * 导入 YouTube 字幕为 TheBoringEnglish Web 精读文章
  * @param {string} serverUrl 服务器地址
  * @param {string} token 认证 Token
- * @param {object} params 文章参数 { title, content, sourceUrl, imageUrl }
+ * @param {object} params 文章参数 { title, content, sourceUrl, imageUrl, parsedJson }
  * @returns {Promise<object>} 导入结果，包含 article_id
  */
 export async function importSubtitleToWeb(serverUrl, token, { title, content, sourceUrl, imageUrl, parsedJson }) {
   const normalizedUrl = getApiUrl(serverUrl);
-  const response = await fetch(`${normalizedUrl}/article/process`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      title: title,
-      content: content,
-      source_url: sourceUrl,
-      image_url: imageUrl,
-      target_lang: "Chinese Simplified",
-      batch_size: 10,
-      parsed_json: parsedJson
-    })
-  });
+  try {
+    const data = await fetchData(
+      `${normalizedUrl}/article/process`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: title,
+          content: content,
+          source_url: sourceUrl,
+          image_url: imageUrl,
+          target_lang: "Chinese Simplified",
+          batch_size: 10,
+          parsed_json: parsedJson,
+        }),
+      },
+      { useCache: false, usePool: false, expect: "json", httpTimeout: 60000 }
+    );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `导入字幕失败 (HTTP ${response.status})`);
+    if (!data?.success || !data?.article_id) {
+      throw new Error(data?.error || "导入失败，未返回文章 ID");
+    }
+
+    return data;
+  } catch (err) {
+    throw new Error(extractDetail(err, "导入字幕失败"));
   }
-
-  const data = await response.json();
-  if (!data.success || !data.article_id) {
-    throw new Error(data.error || "导入失败，未返回文章 ID");
-  }
-
-  return data;
 }
 
 /**
@@ -138,18 +157,20 @@ export async function importSubtitleToWeb(serverUrl, token, { title, content, so
  */
 export async function fetchUserInfoWithToken(serverUrl, token) {
   const normalizedUrl = getApiUrl(serverUrl);
-  const response = await fetch(`${normalizedUrl}/auth/me`, {
-    method: "GET",
-    headers: {
-      "Authorization": `Bearer ${token}`
-    }
-  });
+  try {
+    const data = await fetchData(
+      `${normalizedUrl}/auth/me`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      { useCache: false, usePool: false, expect: "json" }
+    );
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Token 验证失败 (HTTP ${response.status})`);
+    return data?.user || data;
+  } catch (err) {
+    throw new Error(extractDetail(err, "Token 验证失败"));
   }
-
-  const data = await response.json();
-  return data.user || data; // 通常包含 username 或 email
 }
