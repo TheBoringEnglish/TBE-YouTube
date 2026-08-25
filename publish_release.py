@@ -39,8 +39,8 @@ print(f"📊 检测到仓库：{owner}/{repo}")
 # 3. 提示输入 Token
 token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
 if not token:
-    print("🔑 请输入具有 'repo' 权限的 GitHub Personal Access Token (PAT):")
-    token = input().strip()
+    import getpass
+    token = getpass.getpass("🔑 请输入具有 'repo' 权限的 GitHub Personal Access Token (PAT) [输入隐藏]: ").strip()
 
 if not token:
     print("❌ 错误：必须提供 GitHub Token 才能进行发布。")

@@ -63,6 +63,7 @@ class YouTubeCaptionProvider {
   #currentLang = null;
   #currentKind = null;
   #buttonCheckInterval = null; // 存储 setInterval ID 以便清理
+  #adObserver = null; // 广告监听器
 
   constructor(setting = {}) {
     this.#setting = { isAISegment: false, showOrigin: false, ...setting };
@@ -210,26 +211,35 @@ class YouTubeCaptionProvider {
                 }
               }
 
-              // 更新翻译引擎
-              if (newApiSlug && newApiSlug !== oldApiSlug) {
-                logger.info("Youtube Provider: apiSlug changed via storage", oldApiSlug, "→", newApiSlug);
-                this.#setting.apiSlug = newApiSlug;
+              // 更新翻译引擎 slug 或 API 配置（key/model/url等）
+              const currentSlug = this.#setting.apiSlug;
+              const targetSlug = newApiSlug || currentSlug;
 
-                // 重新获取 API 设置
-                let newApiSetting = null;
-                if (parsed.transApis) {
-                  newApiSetting = parsed.transApis.find(a => a.apiSlug === newApiSlug);
-                  if (newApiSetting) {
-                    this.#setting.apiSetting = newApiSetting;
+              if (parsed.transApis && targetSlug) {
+                const latestApiSetting = parsed.transApis.find(a => a.apiSlug === targetSlug);
+                if (latestApiSetting) {
+                  const oldSig = JSON.stringify(this.#setting.apiSetting);
+                  const newSig = JSON.stringify(latestApiSetting);
+                  const slugChanged = newApiSlug && newApiSlug !== oldApiSlug;
+                  const configChanged = oldSig !== newSig;
+
+                  if (slugChanged || configChanged) {
+                    if (slugChanged) {
+                      logger.info("Youtube Provider: apiSlug changed via storage", oldApiSlug, "→", newApiSlug);
+                      this.#setting.apiSlug = newApiSlug;
+                    } else {
+                      logger.info("Youtube Provider: API config (key/model/url) updated for", targetSlug);
+                    }
+                    this.#setting.apiSetting = latestApiSetting;
+
+                    // 通知底层管理器实例热更新 API 配置
+                    if (this.#managerInstance) {
+                      this.#managerInstance.updateSetting({
+                        apiSlug: targetSlug,
+                        apiSetting: latestApiSetting,
+                      });
+                    }
                   }
-                }
-
-                // 通知底层经理实例更新 API 配置（触发重置和即时翻译）
-                if (this.#managerInstance) {
-                  this.#managerInstance.updateSetting({
-                    apiSlug: newApiSlug,
-                    apiSetting: newApiSetting || this.#setting.apiSetting
-                  });
                 }
               }
             } catch (err) {
@@ -247,7 +257,7 @@ class YouTubeCaptionProvider {
     const adLayoutSelector = ".ytp-ad-player-overlay-layout";
     const skipBtnSelector =
       ".ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern";
-    const observer = new MutationObserver((mutations) => {
+    this.#adObserver = new MutationObserver((mutations) => {
       const { skipAd = false } = this.#setting;
       for (const mutation of mutations) {
         if (mutation.type === "childList") {
@@ -299,13 +309,17 @@ class YouTubeCaptionProvider {
       }
     });
 
-    observer.observe(adContainer, {
+    this.#adObserver.observe(adContainer, {
       childList: true,
       subtree: true,
     });
   }
 
-  #waitForElement(selector, callback) {
+  /**
+   * 等待某个 DOM 元素出现，出现后调用 callback。
+   * 内置 30 秒超时自动 disconnect，防止 MutationObserver 永久泵漏。
+   */
+  #waitForElement(selector, callback, timeoutMs = 30000) {
     const getTarget = () => document.querySelector(selector) || 
                            document.getElementById("movie_player")?.shadowRoot?.querySelector(selector);
     
@@ -315,9 +329,11 @@ class YouTubeCaptionProvider {
       return;
     }
 
+    let timer = null;
     const observer = new MutationObserver((mutations, obs) => {
       const targetNode = getTarget();
       if (targetNode) {
+        if (timer) clearTimeout(timer);
         obs.disconnect();
         callback(targetNode);
       }
@@ -327,6 +343,12 @@ class YouTubeCaptionProvider {
       childList: true,
       subtree: true,
     });
+
+    // 超时保护：若元素长期找不到，自动断开 observer
+    timer = setTimeout(() => {
+      observer.disconnect();
+      logger.warn(`[TBE] waitForElement timeout after ${timeoutMs}ms: ${selector}`);
+    }, timeoutMs);
   }
 
   setEnabled(enabled) {
@@ -461,9 +483,9 @@ class YouTubeCaptionProvider {
 
       // 如果是 AI 智能断句翻译，且进度尚未到 100%，友情提示用户
       if (this.#progressed < 100 && this.#setting.isAISegment) {
-        const confirmDownload = confirm(
-          `当前视频的 AI 智能翻译尚未全部加载完成（当前已完成进度：${this.#progressed}%）。\n\n点击【确定】继续下载当前已翻译的部分；\n点击【取消】返回，可将视频进度条拖到最后以完成全部加载后再行下载。`
-        );
+        const msg = this.#i18n("ai_not_ready_confirm") ||
+          `AI subtitle translation is not fully loaded yet (${this.#progressed}% done).\n\nClick OK to download the translated portion so far, or Cancel to wait until the video is fully loaded.`;
+        const confirmDownload = confirm(msg);
         if (!confirmDownload) return;
       }
     }
@@ -1296,7 +1318,12 @@ class YouTubeCaptionProvider {
 
   #destroyManager() {
     this.#removeEventListeners();
-    // 清理按钞定期检查定时器，防止内存泄漏
+    // 清理广告监听器
+    if (this.#adObserver) {
+      this.#adObserver.disconnect();
+      this.#adObserver = null;
+    }
+    // 清理按钓定期检查定时器，防止内存泄漏
     if (this.#buttonCheckInterval !== null) {
       clearInterval(this.#buttonCheckInterval);
       this.#buttonCheckInterval = null;
@@ -1595,9 +1622,8 @@ class YouTubeCaptionProvider {
       });
     });
 
-    segments.push(buffer);
+    if (buffer) segments.push(buffer);
 
-    // 过滤掉可能为 null 的末尾元素（events 为空或最后一项为空时产生）
     return segments.filter(Boolean);
   }
 
@@ -2025,7 +2051,11 @@ class YouTubeCaptionProvider {
       setBtnState("Imported! ✓", false);
       
       if (confirm(`Subtitles successfully imported to TheBoringEnglish!\nArticle Title: ${title}\n\nWould you like to go to the main site for intensive reading now?`)) {
-        window.open(`${config.serverUrl}/video-study/${importResult.article_id}`, "_blank");
+        // 安全校验：确保跳转 URL 使用安全协议，防止协议伪造
+        const targetUrl = `${config.serverUrl}/video-study/${importResult.article_id}`;
+        if (/^https?:\/\//i.test(targetUrl)) {
+          window.open(targetUrl, "_blank");
+        }
       }
 
       setTimeout(() => {

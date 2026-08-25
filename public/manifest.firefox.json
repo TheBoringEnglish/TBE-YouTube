@@ -11,8 +11,8 @@
   "content_scripts": [
     {
       "js": ["content.js"],
-      "matches": ["<all_urls>", "file://*/*"],
-      "all_frames": true
+      "matches": ["*://*.youtube.com/*"],
+      "all_frames": false
     }
   ],
   "web_accessible_resources": [
@@ -48,7 +48,7 @@
     }
   },
   "permissions": [
-    "<all_urls>",
+    "*://*.youtube.com/*",
     "storage",
     "contextMenus",
     "scripting",

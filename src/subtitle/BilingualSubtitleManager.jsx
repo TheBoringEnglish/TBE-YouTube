@@ -559,7 +559,10 @@ export class BilingualSubtitleManager {
     closeBtn.className = "theboringenglish-word-tooltip-close";
     closeBtn.textContent = "×";
     closeBtn.addEventListener("click", () => {
-      if (this.#tooltipEl) this.#tooltipEl.remove();
+      if (this.#tooltipEl) {
+        this.#tooltipEl.remove();
+        this.#tooltipEl = null;
+      }
     });
     header.appendChild(wordSpan);
     header.appendChild(closeBtn);
@@ -1093,15 +1096,10 @@ export class BilingualSubtitleManager {
     }
   }
 
-  // 获取当前字幕的开始时间（使用重新分段后的时间）
+  // 获取当前字幕的开始时间（复用二分查找，O(log n)）
   #getCurrentSubtitleStartTime() {
     const currentTimeMs = this.#videoEl.currentTime * 1000;
-    // 查找当前时间对应的字幕
-    const currentSubtitle = this.#formattedSubtitles.find(
-      sub => currentTimeMs >= sub.start && currentTimeMs <= sub.end
-    );
-    
-    // 返回重新分段后的字幕开始时间，如果没有找到则返回当前时间
-    return currentSubtitle ? currentSubtitle.start : currentTimeMs;
+    const idx = this.#findSubtitleIndexForTime(currentTimeMs);
+    return idx !== -1 ? this.#formattedSubtitles[idx].start : currentTimeMs;
   }
 }

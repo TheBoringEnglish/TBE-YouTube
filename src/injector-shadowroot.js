@@ -3,7 +3,7 @@ const shadowRootInjector = () => {
     const orig = Element.prototype.attachShadow;
     Element.prototype.attachShadow = function (...args) {
       const root = orig.apply(this, args);
-      window.postMessage({ type: "THEBORINGENGLISH_SHADOW_ROOT_CREATED" }, "*");
+      window.postMessage({ type: "THEBORINGENGLISH_SHADOW_ROOT_CREATED" }, window.location.origin);
       return root;
     };
   } catch (err) {

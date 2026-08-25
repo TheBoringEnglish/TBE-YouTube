@@ -134,11 +134,12 @@ function App() {
       try {
         const setting = await getSettingWithDefault();
         const allApis = (setting.transApis || DEFAULT_API_LIST).map(api => {
-          if (api.apiSlug === "Gemini" && api.model === "gemini-2.5-flash") {
-            return { ...api, model: "gemini-3.1-flash-lite" };
+          if (api.apiSlug === "Gemini" && (api.model === "gemini-2.5-flash" || api.model === "gemini-3.1-flash-lite" || api.model === "gemini-2.0-flash")) {
+            return { ...api, model: "gemini-3.5-flash-lite" };
           }
           return api;
         });
+
         const subtitleSet = setting.subtitleSetting || {};
 
         setApis(allApis);
@@ -353,22 +354,8 @@ function App() {
 
       await putSetting({ transApis: apis, subtitleSetting: newSubtitleSetting, uiLang: mappedUiLang });
       setIsSaved(true);
-
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (chrome.runtime.lastError) {
-          console.log("tabs.query status:", chrome.runtime.lastError.message);
-          return;
-        }
-        if (tabs[0]?.id) {
-          chrome.tabs.reload(tabs[0].id, {}, () => {
-            if (chrome.runtime.lastError) {
-              console.log("tabs.reload status:", chrome.runtime.lastError.message);
-            }
-          });
-        }
-      });
-
       setTimeout(() => setIsSaved(false), 2000);
+
     } catch (err) {
       console.error("Failed to save:", err);
     }

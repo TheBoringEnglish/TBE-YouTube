@@ -563,7 +563,7 @@ const defaultApiOpts = {
   [OPT_TRANS_GEMINI]: {
     ...defaultApi,
     url: `https://generativelanguage.googleapis.com/v1/models/${INPUT_PLACE_MODEL}:generateContent?key=${INPUT_PLACE_KEY}`,
-    model: "gemini-3.1-flash-lite",
+    model: "gemini-3.5-flash-lite",
     useBatchFetch: true,
   },
   [OPT_TRANS_GEMINI_2]: {

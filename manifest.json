@@ -52,7 +52,24 @@
   },
   "permissions": ["storage", "scripting"],
   "host_permissions": [
-    "<all_urls>"
+    "*://*.youtube.com/*",
+    "*://translate.googleapis.com/*",
+    "*://translate-pa.googleapis.com/*",
+    "*://generativelanguage.googleapis.com/*",
+    "*://api.openai.com/*",
+    "*://api.anthropic.com/*",
+    "*://api.deepl.com/*",
+    "*://api-free.deepl.com/*",
+    "*://api.cognitive.microsofttranslator.com/*",
+    "*://api.niutrans.com/*",
+    "*://openrouter.ai/*",
+    "*://api.cloudflare.com/*",
+    "*://transmart.qq.com/*",
+    "*://api.volcengine.com/*",
+    "*://dict.youdao.com/*",
+    "*://*.theboringenglish.com/*",
+    "*://localhost/*",
+    "*://127.0.0.1/*"
   ],
   "icons": {
     "16": "images/logo16.png",

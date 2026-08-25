@@ -29,11 +29,11 @@ window.addEventListener("message", function(event) {
   // 严格验证消息来源，防止跨源消息注入
   if (event.origin !== window.location.origin) return;
   // 检查消息来源和类型
-  if (event.data && event.data.type === "THEBORINGENGLISH_TRANSLATOR_JUMP_TO_TIME") {
+  if (event.data && event.data.type === "THEBORINGENGLISH_TRANSLATOR_JUMP_TO_TIME" && typeof event.data.time === "number" && Number.isFinite(event.data.time) && event.data.time >= 0) {
     // 查找页面上的视频元素
     const video = document.querySelector('video');
     if (video) {
-      // 将毫秒转换为秒并设置视频时间
+      // 将毫秒转换为秒并设置视频时间（严格校验数据类型防止注入）
       video.currentTime = event.data.time / 1000;
       
       // 如果视频暂停则播放

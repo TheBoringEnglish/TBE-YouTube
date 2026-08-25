@@ -7,7 +7,7 @@
   "author": "TheBoringEnglish Team",
   "browser_specific_settings": {
     "gecko": {
-      "id": "yugang2002@gmail.com",
+      "id": "theboringenglish@thunderbird",
       "strict_min_version": "78.0"
     }
   },
@@ -17,8 +17,8 @@
   "content_scripts": [
     {
       "js": ["content.js"],
-      "matches": ["<all_urls>", "file://*/*"],
-      "all_frames": true
+      "matches": ["*://*.youtube.com/*"],
+      "all_frames": false
     }
   ],
   "web_accessible_resources": [
@@ -54,10 +54,9 @@
     }
   },
   "permissions": [
-    "<all_urls>",
+    "*://*.youtube.com/*",
     "storage",
     "menus",
-    "messagesModify",
     "scripting",
     "declarativeNetRequest"
   ],
