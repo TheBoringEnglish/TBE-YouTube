@@ -25,7 +25,7 @@ export default defineConfig({
     "process.env.REACT_APP_HOMEPAGE": JSON.stringify("https://github.com/TheBoringEnglish/TBE-YouTube"),
     "process.env.REACT_APP_OPTIONSPAGE": JSON.stringify("options.html"),
     "process.env.REACT_APP_OPTIONSPAGE_DEV": JSON.stringify("options.html"),
-    "process.env": "{}",
+    "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV || "production"),
   },
   build: {
     rollupOptions: {
