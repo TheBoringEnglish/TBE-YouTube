@@ -6,7 +6,7 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
-    "test": "vitest",
+    "test": "vitest run",
     "preview": "vite preview",
     "zip": "npm run build && node zip.js"
   },
