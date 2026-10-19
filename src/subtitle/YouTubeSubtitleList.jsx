@@ -2,6 +2,8 @@ import { logger } from "../libs/log";
 import { syncWordToWeb, importSubtitleToWeb } from "../apis/theboringenglish";
 import { apiMicrosoftDict, apiTranslate } from "../apis/index";
 import { newI18n } from "../config/i18n";
+import { speakWord } from "../libs/speech";
+
 
 /**
  * YouTube 字幕列表管理器
@@ -250,14 +252,46 @@ export class YouTubeSubtitleList {
     const exportBar = document.createElement("div");
     Object.assign(exportBar.style, {
       padding: "10px 16px",
-      borderBottom: `1px solid ${s.border}`,
+      borderBottom: `1px solid ${s.border || s.divider}`,
       display: "flex",
+      alignItems: "center",
       justifyContent: "flex-end",
       gap: "6px",
       flexShrink: "0",
+      flexWrap: "wrap",
     });
 
     if (this.vocabulary.length > 0) {
+      const syncBtn = document.createElement("button");
+      syncBtn.textContent = "☁️ Sync to Web";
+      syncBtn.title = "Batch sync all vocabulary to TheBoringEnglish Web account (一键同步到主站)";
+      Object.assign(syncBtn.style, {
+        padding: "5px 11px",
+        background: "linear-gradient(135deg, rgba(255, 122, 0, 0.16) 0%, rgba(234, 88, 12, 0.1) 100%)",
+        color: s.warmGold || "#f59e0b",
+        border: "1px solid rgba(245, 158, 11, 0.35)",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "12px",
+        fontWeight: "600",
+        transition: "all 0.18s",
+        fontFamily: "inherit",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        marginRight: "auto",
+      });
+      syncBtn.addEventListener("mouseenter", () => {
+        syncBtn.style.background = "linear-gradient(135deg, #ff7a00 0%, #ea580c 100%)";
+        syncBtn.style.color = "#ffffff";
+      });
+      syncBtn.addEventListener("mouseleave", () => {
+        syncBtn.style.background = "linear-gradient(135deg, rgba(255, 122, 0, 0.16) 0%, rgba(234, 88, 12, 0.1) 100%)";
+        syncBtn.style.color = s.warmGold || "#f59e0b";
+      });
+      syncBtn.addEventListener("click", () => this.syncAllVocabularyToWeb(syncBtn));
+      exportBar.appendChild(syncBtn);
+
       const formats = [
         { label: "JSON", fn: () => this.exportVocabularyAsJson() },
         { label: "CSV", fn: () => this.exportVocabularyAsCsv() },
@@ -364,15 +398,51 @@ export class YouTubeSubtitleList {
 
       wordLine.appendChild(wordEl);
 
+      const speakBtn = document.createElement("button");
+      speakBtn.textContent = "🔊";
+      speakBtn.title = "Pronounce word (点击发音)";
+      Object.assign(speakBtn.style, {
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        fontSize: "14px",
+        padding: "2px 4px",
+        color: s.primary || "#f59e0b",
+        borderRadius: "4px",
+        transition: "transform 0.15s, background 0.15s",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      });
+      speakBtn.addEventListener("mouseenter", () => {
+        speakBtn.style.transform = "scale(1.18)";
+        speakBtn.style.background = s.primarySubtle || "rgba(245, 158, 11, 0.12)";
+      });
+      speakBtn.addEventListener("mouseleave", () => {
+        speakBtn.style.transform = "scale(1)";
+        speakBtn.style.background = "none";
+      });
+      speakBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        speakWord(item.word);
+      });
+      wordLine.appendChild(speakBtn);
+
       if (item.phonetic) {
         const phoneticEl = document.createElement("span");
         const clean = item.phonetic.replace(/US\s*/g, '').replace(/[\[\]]/g, '');
         phoneticEl.textContent = `[${clean}]`;
+        phoneticEl.title = "Click to pronounce (点击发音)";
+        phoneticEl.style.cursor = "pointer";
         Object.assign(phoneticEl.style, {
           color: s.textTime,
           fontStyle: "italic",
           fontSize: "13px",
+          transition: "color 0.15s",
         });
+        phoneticEl.addEventListener("mouseenter", () => { phoneticEl.style.color = s.primary; });
+        phoneticEl.addEventListener("mouseleave", () => { phoneticEl.style.color = s.textTime; });
+        phoneticEl.addEventListener("click", () => speakWord(item.word));
         wordLine.appendChild(phoneticEl);
       }
 
@@ -473,6 +543,65 @@ export class YouTubeSubtitleList {
   async handleImportSubtitle() {
     if (this.provider) {
       await this.provider.handleImportSubtitle();
+    }
+  }
+
+  // ==================== 一键批量同步生词至 TheBoringEnglish Web ====================
+  async syncAllVocabularyToWeb(btn) {
+    if (!this.vocabulary || this.vocabulary.length === 0) return;
+
+    try {
+      btn.disabled = true;
+      btn.textContent = "Syncing...";
+
+      const syncResult = await new Promise((resolve) => {
+        chrome.storage.local.get(["theboringenglish_sync_config"], resolve);
+      });
+      const config = syncResult.theboringenglish_sync_config;
+      if (!config || !config.isConnected || !config.token) {
+        alert("请先点击扩展图标，在‘联动’标签页中登录并连接你的 TheBoringEnglish 账户！");
+        btn.disabled = false;
+        btn.textContent = "☁️ Sync to Web";
+        return;
+      }
+
+      let successCount = 0;
+      const total = this.vocabulary.length;
+
+      for (let i = 0; i < total; i++) {
+        const item = this.vocabulary[i];
+        btn.textContent = `Syncing (${i + 1}/${total})...`;
+        const formattedExamples = (item.examples || []).map((ex) => ({
+          text: ex.eng || ex.text || "",
+          translation: ex.chs || ex.translation || "",
+        }));
+
+        try {
+          await syncWordToWeb(config.serverUrl, config.token, {
+            word: item.word,
+            phonetic: (item.phonetic || "").replace(/US\s*/g, "").replace(/[\[\]]/g, ""),
+            translation: item.definition || "",
+            definition_native: item.definition || "",
+            examples: formattedExamples,
+          });
+          successCount++;
+        } catch (e) {
+          logger.warn(`Failed to sync ${item.word}:`, e);
+        }
+      }
+
+      btn.textContent = `✅ Synced ${successCount}/${total}`;
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = "☁️ Sync to Web";
+      }, 3000);
+    } catch (err) {
+      logger.error("Sync all vocabulary error:", err);
+      btn.textContent = "❌ Sync failed";
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = "☁️ Sync to Web";
+      }, 2500);
     }
   }
 

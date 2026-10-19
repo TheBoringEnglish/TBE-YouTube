@@ -12,6 +12,9 @@ import {
   MSG_MENUS_PROGRESSED,
   MSG_MENUS_UPDATEFORM,
   OPT_LANGS_SPEC_DEFAULT,
+  CMD_TOGGLE_TRANSLATE,
+  CMD_OPEN_TRANBOX,
+  CMD_TOGGLE_STYLE,
 } from "../config/index.js";
 import { sleep, genEventName, downloadBlobFile } from "../libs/utils.js";
 import { createLogoSVG, createImportSVG } from "../libs/svg.js";
@@ -64,6 +67,7 @@ class YouTubeCaptionProvider {
   #currentKind = null;
   #buttonCheckInterval = null; // 存储 setInterval ID 以便清理
   #adObserver = null; // 广告监听器
+  #stylePresetIndex = 0;
 
   constructor(setting = {}) {
     this.#setting = { isAISegment: false, showOrigin: false, ...setting };
@@ -165,6 +169,13 @@ class YouTubeCaptionProvider {
 
     // 监听存储变化，当 Popup 保存设置后立即更新
     this.#listenForSettingChanges();
+
+    // 监听沉浸式快捷键命令
+    document.addEventListener("theboringenglish-command", (event) => {
+      const { command } = event.detail || {};
+      if (!command) return;
+      this.#handleCommand(command);
+    });
   }
 
   #listenForSettingChanges() {
@@ -1924,25 +1935,103 @@ class YouTubeCaptionProvider {
     });
   }
 
+  #handleCommand(command) {
+    if (command === CMD_TOGGLE_TRANSLATE || command === "toggleTranslate") {
+      const newBilingual = !this.#setting.isBilingual;
+      this.#setting.isBilingual = newBilingual;
+      this.#managerInstance?.updateSetting({ isBilingual: newBilingual });
+      this.#sendMenusMsg({
+        action: MSG_MENUS_UPDATEFORM,
+        data: { isBilingual: newBilingual },
+      });
+      putSetting({
+        subtitleSetting: {
+          ...this.#setting,
+          isBilingual: newBilingual,
+        },
+      });
+      this.#showNotification(
+        newBilingual ? "🌐 双语字幕: 已开启" : "🌐 双语字幕: 已关闭 (仅原文)"
+      );
+    } else if (command === CMD_OPEN_TRANBOX || command === "openTranbox") {
+      const newShowList = !this.#setting.showSubtitleList;
+      this.#setting.showSubtitleList = newShowList;
+      if (this.#subtitleListManager) {
+        if (newShowList) {
+          this.#subtitleListManager.show();
+        } else {
+          this.#subtitleListManager.hide();
+        }
+      }
+      this.#sendMenusMsg({
+        action: MSG_MENUS_UPDATEFORM,
+        data: { showSubtitleList: newShowList },
+      });
+      this.#showNotification(
+        newShowList ? "📑 字幕抽屉: 已展开" : "📑 字幕抽屉: 已收起"
+      );
+    } else if (command === CMD_TOGGLE_STYLE || command === "toggleStyle") {
+      this.#cycleSubtitlePreset();
+    }
+  }
+
+  #cycleSubtitlePreset() {
+    const presets = [
+      {
+        name: "标准 (Standard 18px)",
+        origin: "font-size: clamp(1.1rem, 2.2cqw, 2.8rem); font-weight: 600; margin: 0; padding-bottom: 2px;",
+        trans: "font-size: clamp(0.95rem, 1.8cqw, 2.4rem); color: #fde68a; margin: 0;",
+      },
+      {
+        name: "大号 (Large 22px)",
+        origin: "font-size: clamp(1.3rem, 2.6cqw, 3.3rem); font-weight: 700; margin: 0; padding-bottom: 3px;",
+        trans: "font-size: clamp(1.1rem, 2.1cqw, 2.8rem); color: #fde68a; margin: 0;",
+      },
+      {
+        name: "影院特大 (Cinematic 26px)",
+        origin: "font-size: clamp(1.5rem, 3.0cqw, 3.8rem); font-weight: 800; margin: 0; padding-bottom: 4px;",
+        trans: "font-size: clamp(1.25rem, 2.4cqw, 3.2rem); color: #fbbf24; margin: 0;",
+      },
+    ];
+    this.#stylePresetIndex = (this.#stylePresetIndex + 1) % presets.length;
+    const chosen = presets[this.#stylePresetIndex];
+    this.#setting.originStyle = chosen.origin;
+    this.#setting.translationStyle = chosen.trans;
+    this.#managerInstance?.updateSetting({
+      originStyle: chosen.origin,
+      translationStyle: chosen.trans,
+    });
+    this.#showNotification(`🎨 字幕字号: ${chosen.name}`);
+  }
+
   #createNotificationElement() {
     const notificationEl = document.createElement("div");
     notificationEl.className = "theboringenglish-notification";
     Object.assign(notificationEl.style, {
       position: "absolute",
-      top: "40%",
+      top: "14%",
       left: "50%",
       transform: "translateX(-50%)",
-      background: "rgba(0,0,0,0.7)",
-      color: "red",
-      padding: "0.5em 1em",
-      borderRadius: "4px",
+      background: "rgba(15, 23, 42, 0.88)",
+      color: "#ffffff",
+      padding: "9px 20px",
+      borderRadius: "24px",
       zIndex: "2147483647",
       opacity: "0",
-      transition: "opacity 0.3s ease-in-out",
+      transition: "opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
       pointerEvents: "none",
-      fontSize: "2em",
-      width: "50%",
+      fontSize: "14px",
+      fontWeight: "600",
       textAlign: "center",
+      boxShadow: "0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(245, 158, 11, 0.35)",
+      backdropFilter: "blur(12px)",
+      WebkitBackdropFilter: "blur(12px)",
+      fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
+      letterSpacing: "0.2px",
+      maxWidth: "80%",
+      whiteSpace: "nowrap",
+      textOverflow: "ellipsis",
+      overflow: "hidden",
     });
 
     const videoEl = this.#videoEl;
@@ -1959,7 +2048,9 @@ class YouTubeCaptionProvider {
     this.#notificationEl.style.opacity = "1";
     clearTimeout(this.#notificationTimeout);
     this.#notificationTimeout = setTimeout(() => {
-      this.#notificationEl.style.opacity = "0";
+      if (this.#notificationEl) {
+        this.#notificationEl.style.opacity = "0";
+      }
     }, duration);
   }
 

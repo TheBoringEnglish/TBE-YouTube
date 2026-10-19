@@ -3,8 +3,9 @@ import { truncateWords, throttle } from "../libs/utils.js";
 import { apiTranslate } from "../apis/index";
 import { apiMicrosoftDict } from "../apis/index";
 import { newI18n } from "../config/i18n";
+import { speakWord } from "../libs/speech.js";
 
-// 添加CSS样式用于高亮显示悬停的单词
+// 添加CSS样式用于高亮显示悬停的单词与发音按钮
 const addWordHoverStyles = () => {
   if (document.getElementById("theboringenglish-word-hover-styles")) return;
 
@@ -30,6 +31,32 @@ const addWordHoverStyles = () => {
     .theboringenglish-key-vocab:hover {
       background-color: rgba(255, 145, 0, 0.15);
     }
+
+    .theboringenglish-pronounce-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      font-size: 15px;
+      color: #fbbf24;
+      transition: transform 0.15s, background-color 0.15s;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .theboringenglish-pronounce-btn:hover {
+      background: rgba(251, 191, 36, 0.2);
+      transform: scale(1.15);
+    }
+
+    .theboringenglish-pronounce-btn:active {
+      transform: scale(0.95);
+    }
+
     
     .theboringenglish-word-tooltip {
       position: fixed;
@@ -233,7 +260,7 @@ export class BilingualSubtitleManager {
       position: "absolute",
       width: "80%",
       left: "50%",
-      bottom: "10%",
+      bottom: "max(68px, 11%)",
       transform: "translateX(-50%)",
       textAlign: "center",
       containerType: "inline-size",
@@ -553,8 +580,27 @@ export class BilingualSubtitleManager {
     // Header
     const header = document.createElement("div");
     header.className = "theboringenglish-word-tooltip-header";
+    
+    const wordTitleWrap = document.createElement("div");
+    wordTitleWrap.style.display = "flex";
+    wordTitleWrap.style.alignItems = "center";
+    wordTitleWrap.style.gap = "6px";
+
     const wordSpan = document.createElement("span");
     wordSpan.textContent = word;
+    wordTitleWrap.appendChild(wordSpan);
+
+    const pronounceBtn = document.createElement("button");
+    pronounceBtn.className = "theboringenglish-pronounce-btn";
+    pronounceBtn.title = "Pronounce word (点击发音)";
+    pronounceBtn.textContent = "🔊";
+    pronounceBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      speakWord(word);
+    });
+    wordTitleWrap.appendChild(pronounceBtn);
+    header.appendChild(wordTitleWrap);
+
     const closeBtn = document.createElement("button");
     closeBtn.className = "theboringenglish-word-tooltip-close";
     closeBtn.textContent = "×";
@@ -564,7 +610,6 @@ export class BilingualSubtitleManager {
         this.#tooltipEl = null;
       }
     });
-    header.appendChild(wordSpan);
     header.appendChild(closeBtn);
     nodes.push(header);
 
@@ -587,6 +632,10 @@ export class BilingualSubtitleManager {
     // 音标
     if (dictResult.aus && dictResult.aus.length > 0) {
       const phoneticDiv = document.createElement("div");
+      phoneticDiv.style.cursor = "pointer";
+      phoneticDiv.title = "Click to pronounce (点击发音)";
+      phoneticDiv.addEventListener("click", () => speakWord(word));
+
       dictResult.aus.forEach((au) => {
         if (au.phonetic) {
           const span = document.createElement("span");
@@ -681,10 +730,11 @@ export class BilingualSubtitleManager {
       let newBottom = initialBottom - deltaY;
 
       const containerHeight = boundaryContainer.clientHeight;
-      newBottom = Math.max(0, newBottom);
+      const minBottom = 60; // 保证字幕拖拽时始终处于 YouTube 底部控制条之上，防止遮挡
+      newBottom = Math.max(minBottom, newBottom);
       newBottom = Math.min(containerHeight - dragElementHeight, newBottom);
       if (dragElementHeight > containerHeight) {
-        newBottom = Math.max(0, newBottom);
+        newBottom = Math.max(minBottom, newBottom);
       }
 
       dragElement.style.bottom = `${newBottom}px`;

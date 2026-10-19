@@ -97,16 +97,18 @@ export const DEFAULT_TRANBOX_SETTING = {
   enSug: OPT_SUG_YOUDAO, // 英文建议
 };
 
-const SUBTITLE_WINDOW_STYLE = `padding: 0.5em 1em;
-background-color: rgba(0, 0, 0, 0.5);
-color: white;
-line-height: 1.3;
-text-shadow: 1px 1px 2px black;
+const SUBTITLE_WINDOW_STYLE = `padding: 0.45em 0.9em;
+background-color: rgba(15, 23, 42, 0.82);
+color: #ffffff;
+line-height: 1.35;
+text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+border-radius: 8px;
+backdrop-filter: blur(6px);
 display: inline-block`;
 
-const SUBTITLE_ORIGIN_STYLE = `font-size: clamp(1rem, 2cqw, 3rem);`;
+const SUBTITLE_ORIGIN_STYLE = `font-size: clamp(1.1rem, 2.2cqw, 2.8rem); font-weight: 600; margin: 0; padding-bottom: 2px;`;
 
-const SUBTITLE_TRANSLATION_STYLE = `font-size: clamp(1rem, 2cqw, 3rem);`;
+const SUBTITLE_TRANSLATION_STYLE = `font-size: clamp(0.95rem, 1.8cqw, 2.4rem); color: #fde68a; margin: 0;`;
 
 /**
  * 获取浏览器语言并映射到支持的语言代码
