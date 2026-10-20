@@ -29,7 +29,9 @@ const messageHandlers = {
 /**
  * 监听消息
  */
-browser.runtime.onMessage.addListener(async ({ action, args }) => {
+browser.runtime.onMessage.addListener(async (message) => {
+  if (!message || typeof message !== "object") return;
+  const { action, args } = message;
   const handler = messageHandlers[action];
   if (handler) {
     return handler(args);
@@ -42,8 +44,10 @@ browser.runtime.onMessage.addListener(async ({ action, args }) => {
 if (browser.commands?.onCommand) {
   browser.commands.onCommand.addListener(async (command) => {
     if (command === CMD_OPEN_OPTIONS || command === "openOptions") {
-      if (browser.runtime.openOptionsPage) {
-        browser.runtime.openOptionsPage();
+      if (browser.runtime?.openOptionsPage) {
+        browser.runtime.openOptionsPage().catch((err) => {
+          console.warn("[TheBoringEnglish] openOptionsPage failed:", err);
+        });
       }
       return;
     }

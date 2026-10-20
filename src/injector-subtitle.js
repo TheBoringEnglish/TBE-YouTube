@@ -58,8 +58,9 @@ const XMLHttpRequestInjector = () => {
   try {
     const originalOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function (...args) {
-      const url = args[1];
-      if (typeof url === "string") {
+      const rawUrl = args[1];
+      const url = typeof rawUrl === "string" ? rawUrl : (rawUrl instanceof URL ? rawUrl.href : (rawUrl?.href || String(rawUrl || "")));
+      if (typeof url === "string" && url) {
         if (url.includes("timedtext")) {
           console.log("[TheBoringEnglish Interceptor] XHR matched timedtext request:", url);
           this.addEventListener("load", function () {
@@ -91,10 +92,19 @@ const FetchInjector = () => {
   try {
     const originalFetch = window.fetch;
     window.fetch = async function (...args) {
-      const url = typeof args[0] === "string" ? args[0] : args[0]?.url;
+      let url = "";
+      if (typeof args[0] === "string") {
+        url = args[0];
+      } else if (args[0] instanceof URL) {
+        url = args[0].href;
+      } else if (args[0]?.url) {
+        url = args[0].url;
+      } else if (args[0]?.href) {
+        url = args[0].href;
+      }
       const response = await originalFetch.apply(this, args);
 
-      if (typeof url === "string") {
+      if (typeof url === "string" && url) {
         if (url.includes("timedtext")) {
           console.log("[TheBoringEnglish Interceptor] Fetch matched timedtext request:", url);
           try {

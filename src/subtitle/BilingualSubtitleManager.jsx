@@ -60,18 +60,27 @@ const addWordHoverStyles = () => {
     
     .theboringenglish-word-tooltip {
       position: fixed;
-      background: rgba(0, 0, 0, 0.95);
-      color: white;
-      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.96);
+      color: #f8fafc;
+      border-radius: 10px;
       padding: 16px;
       font-size: 14px;
       z-index: 2147483647;
       max-width: 450px;
       word-wrap: break-word;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      font-family: Arial, sans-serif;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .theboringenglish-word-tooltip[data-theme='light'],
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) {
+      background: rgba(255, 255, 255, 0.98);
+      color: #0f172a;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
     }
     
     .theboringenglish-word-tooltip-header {
@@ -82,6 +91,11 @@ const addWordHoverStyles = () => {
       font-weight: bold;
       font-size: 16px;
       color: #4fc3f7;
+    }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-tooltip-header,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-tooltip-header {
+      color: #ea580c;
     }
     
     .theboringenglish-word-tooltip-close {
@@ -104,6 +118,17 @@ const addWordHoverStyles = () => {
       background: rgba(255, 255, 255, 0.1);
       border-radius: 50%;
     }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-tooltip-close,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-tooltip-close {
+      color: #64748b;
+    }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-tooltip-close:hover,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-tooltip-close:hover {
+      color: #0f172a;
+      background: rgba(0, 0, 0, 0.06);
+    }
     
     .theboringenglish-word-loading {
       color: #bbb;
@@ -118,17 +143,32 @@ const addWordHoverStyles = () => {
       color: #4fc3f7;
       font-weight: bold;
     }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-pos,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-pos {
+      color: #ea580c;
+    }
     
     .theboringenglish-word-phonetic {
       color: #bbb;
       font-style: italic;
       margin-right: 10px;
     }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-phonetic,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-phonetic {
+      color: #7c2d12;
+    }
     
     .theboringenglish-word-example {
       margin-top: 10px;
       padding-top: 8px;
       border-top: 1px solid #444;
+    }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-example,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-example {
+      border-top-color: rgba(0, 0, 0, 0.08);
     }
     
     .theboringenglish-word-example-title {
@@ -143,6 +183,11 @@ const addWordHoverStyles = () => {
     .theboringenglish-word-example-translation {
       color: #bbb;
       font-style: italic;
+    }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-example-translation,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-example-translation {
+      color: #64748b;
     }
   `;
   document.head.appendChild(style);
@@ -378,6 +423,7 @@ export class BilingualSubtitleManager {
     // 创建提示框
     this.#tooltipEl = document.createElement("div");
     this.#tooltipEl.className = "theboringenglish-word-tooltip";
+    this.#tooltipEl.setAttribute("data-theme", document.documentElement.hasAttribute("dark") ? "dark" : "light");
     
     this.#tooltipEl.onmouseenter = () => {
       this.#isHoveringTooltip = true;

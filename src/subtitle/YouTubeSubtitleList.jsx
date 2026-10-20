@@ -1695,6 +1695,158 @@ export class YouTubeSubtitleList {
         background: var(--theboringenglish-text-muted);
         background-clip: padding-box;
       }
+
+      /* ── Word hover and pronunciation tooltip styles ── */
+      .theboringenglish-word-hover {
+        cursor: pointer;
+        text-decoration: underline;
+        text-decoration-color: #4fc3f7;
+        text-decoration-thickness: 2px;
+      }
+      .theboringenglish-key-vocab {
+        cursor: pointer;
+        text-decoration: underline;
+        text-decoration-color: #ff9100;
+        text-decoration-thickness: 2px;
+        font-weight: bold;
+        transition: background-color 0.15s;
+      }
+      .theboringenglish-key-vocab:hover {
+        background-color: rgba(255, 145, 0, 0.15);
+      }
+      .theboringenglish-pronounce-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        font-size: 15px;
+        color: #fbbf24;
+        transition: transform 0.15s, background-color 0.15s;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+      .theboringenglish-pronounce-btn:hover {
+        background: rgba(251, 191, 36, 0.2);
+        transform: scale(1.15);
+      }
+      .theboringenglish-pronounce-btn:active {
+        transform: scale(0.95);
+      }
+      .theboringenglish-word-tooltip {
+        position: absolute;
+        background: rgba(15, 23, 42, 0.96);
+        color: #f8fafc;
+        border-radius: 10px;
+        padding: 16px;
+        font-size: 14px;
+        z-index: 2147483647;
+        word-wrap: break-word;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'],
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) {
+        background: rgba(255, 255, 255, 0.98);
+        color: #0f172a;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+      }
+      .theboringenglish-word-tooltip-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-weight: bold;
+        font-size: 16px;
+        color: #4fc3f7;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-tooltip-header,
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-tooltip-header {
+        color: #ea580c;
+      }
+      .theboringenglish-word-tooltip-close {
+        background: none;
+        border: none;
+        color: #aaa;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0;
+        margin-left: 10px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .theboringenglish-word-tooltip-close:hover {
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-tooltip-close,
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-tooltip-close {
+        color: #64748b;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-tooltip-close:hover,
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-tooltip-close:hover {
+        color: #0f172a;
+        background: rgba(0, 0, 0, 0.06);
+      }
+      .theboringenglish-word-loading {
+        color: #bbb;
+        font-style: italic;
+      }
+      .theboringenglish-word-definition {
+        margin: 4px 0;
+      }
+      .theboringenglish-word-pos {
+        color: #4fc3f7;
+        font-weight: bold;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-pos,
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-pos {
+        color: #ea580c;
+      }
+      .theboringenglish-word-phonetic {
+        color: #bbb;
+        font-style: italic;
+        margin-right: 10px;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-phonetic,
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-phonetic {
+        color: #7c2d12;
+      }
+      .theboringenglish-word-example {
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid #444;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-example,
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-example {
+        border-top-color: rgba(0, 0, 0, 0.08);
+      }
+      .theboringenglish-word-example-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .theboringenglish-word-example-sentence {
+        margin-bottom: 3px;
+      }
+      .theboringenglish-word-example-translation {
+        color: #bbb;
+        font-style: italic;
+      }
+      .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-example-translation,
+      html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-example-translation {
+        color: #64748b;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -1847,6 +1999,14 @@ export class YouTubeSubtitleList {
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
+    }
+    if (this.tooltipEl) {
+      this.tooltipEl.remove();
+      this.tooltipEl = null;
+    }
+    if (this.hoverTimeout) {
+      clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = null;
     }
     if (this.container) {
       this.container.remove();
@@ -2004,6 +2164,7 @@ export class YouTubeSubtitleList {
 
     this.tooltipEl = document.createElement("div");
     this.tooltipEl.className = "theboringenglish-word-tooltip";
+    this.tooltipEl.setAttribute("data-theme", this._theme || "light");
     
     this.tooltipEl.onmouseenter = () => {
       this.isHoveringTooltip = true;
@@ -2195,15 +2356,33 @@ export class YouTubeSubtitleList {
 
     const header = document.createElement("div");
     header.className = "theboringenglish-word-tooltip-header";
+    
+    const wordTitleWrap = document.createElement("div");
+    wordTitleWrap.style.display = "flex";
+    wordTitleWrap.style.alignItems = "center";
+    wordTitleWrap.style.gap = "6px";
+
     const wordSpan = document.createElement("span");
     wordSpan.textContent = word;
+    wordTitleWrap.appendChild(wordSpan);
+
+    const pronounceBtn = document.createElement("button");
+    pronounceBtn.className = "theboringenglish-pronounce-btn";
+    pronounceBtn.title = "Pronounce word (点击发音)";
+    pronounceBtn.textContent = "🔊";
+    pronounceBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      speakWord(word);
+    });
+    wordTitleWrap.appendChild(pronounceBtn);
+    header.appendChild(wordTitleWrap);
+
     const closeBtn = document.createElement("button");
     closeBtn.className = "theboringenglish-word-tooltip-close";
     closeBtn.textContent = "×";
     closeBtn.addEventListener("click", () => {
       if (this.tooltipEl) this.tooltipEl.remove();
     });
-    header.appendChild(wordSpan);
     header.appendChild(closeBtn);
     nodes.push(header);
 
@@ -2225,6 +2404,10 @@ export class YouTubeSubtitleList {
 
     if (dictResult.aus && dictResult.aus.length > 0) {
       const phoneticDiv = document.createElement("div");
+      phoneticDiv.style.cursor = "pointer";
+      phoneticDiv.title = "Click to pronounce (点击发音)";
+      phoneticDiv.addEventListener("click", () => speakWord(word));
+
       dictResult.aus.forEach((au) => {
         if (au.phonetic) {
           const span = document.createElement("span");

@@ -84,5 +84,9 @@
       "32": "images/logo32.png",
       "48": "images/logo48.png"
     }
+  },
+  "options_ui": {
+    "page": "popup.html",
+    "open_in_tab": true
   }
 }

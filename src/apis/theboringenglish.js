@@ -8,8 +8,11 @@ import { fetchData } from "../libs/fetch";
  * 本地开发时，前端主站常起在 6400 端口，而后端 API 端口起在 6401 端口。
  * 如果用户输入的是 6400 端口，在此处自动规整映射到 6401，从而避免 Failed to fetch。
  */
-function getApiUrl(serverUrl) {
-  let url = (serverUrl || "").trim().replace(/\/$/, "");
+export function getApiUrl(serverUrl) {
+  let url = (serverUrl || "https://www.theboringenglish.com").trim().replace(/\/$/, "");
+  if (!url) {
+    url = "https://www.theboringenglish.com";
+  }
   if (url.includes("localhost:6400")) {
     url = url.replace("localhost:6400", "localhost:6401");
   } else if (url.includes("127.0.0.1:6400")) {
