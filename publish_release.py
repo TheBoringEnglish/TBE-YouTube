@@ -5,7 +5,8 @@ import urllib.request
 import json
 
 # 1. 检测 zip 文件是否存在
-zip_name = "TBE-YouTube.zip"
+zip_candidates = ["TBE-YouTube.zip", "TBE-v1.0.0.zip"]
+zip_name = next((z for z in zip_candidates if os.path.exists(z)), "TBE-YouTube.zip")
 if not os.path.exists(zip_name):
     print(f"❌ 错误：未找到 {zip_name} 文件。请先在终端运行 'npm run build' 并压缩它。")
     sys.exit(1)
