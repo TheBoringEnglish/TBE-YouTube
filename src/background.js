@@ -6,6 +6,7 @@ import {
   MSG_FETCH, 
   MSG_GET_HTTPCACHE, 
   MSG_PUT_HTTPCACHE,
+  MSG_CLEAR_CACHES,
   MSG_COMMAND_SHORTCUTS,
   CMD_OPEN_OPTIONS 
 } from "./config";
@@ -24,6 +25,7 @@ const messageHandlers = {
   [MSG_FETCH]: (args) => fetchHandle(args),
   [MSG_GET_HTTPCACHE]: (args) => getHttpCache(args),
   [MSG_PUT_HTTPCACHE]: (args) => putHttpCache(args),
+  [MSG_CLEAR_CACHES]: () => tryClearCaches(),
 };
 
 /**

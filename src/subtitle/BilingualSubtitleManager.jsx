@@ -200,6 +200,7 @@ const addWordHoverStyles = () => {
 export class BilingualSubtitleManager {
   #videoEl;
   #formattedSubtitles = [];
+  #containerEl = null;
   #captionWindowEl = null;
   #paperEl = null;
   #currentSubtitleIndex = -1;
@@ -261,7 +262,14 @@ export class BilingualSubtitleManager {
     logger.info("Bilingual Subtitle Manager: Destroying...");
     this.#removeEventListeners();
     this.#throttledTriggerTranslations?.cancel();
-    this.#captionWindowEl?.parentElement?.parentElement?.remove();
+    if (this.#containerEl) {
+      this.#containerEl.remove();
+      this.#containerEl = null;
+    } else {
+      this.#captionWindowEl?.parentElement?.parentElement?.remove();
+    }
+    this.#paperEl = null;
+    this.#captionWindowEl = null;
     this.#formattedSubtitles = [];
     // 清理tooltip元素
     if (this.#tooltipEl) {
@@ -298,6 +306,7 @@ export class BilingualSubtitleManager {
       top: "0",
       pointerEvents: "none",
     });
+    this.#containerEl = container;
 
     const paper = document.createElement("div");
     paper.className = `theboringenglish-caption-paper`;

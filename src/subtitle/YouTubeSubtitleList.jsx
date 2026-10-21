@@ -42,18 +42,27 @@ export class YouTubeSubtitleList {
     this.handleWordAdded = this.handleWordAdded.bind(this);
     document.addEventListener("theboringenglish-add-word", this.handleWordAdded);
 
-    window.addEventListener("message", (event) => {
-      // 严格验证消息来源，防止跨源消息注入
-      if (event.origin !== window.location.origin) return;
-      if (event.data && event.data.type === "THEBORINGENGLISH_TRANSLATOR_JUMP_TO_TIME") {
-        if (this.videoEl) {
-          this.videoEl.currentTime = event.data.time / 1000;
-          if (this.videoEl.paused) {
-            this.videoEl.play();
-          }
+    this._handleJumpMessage = this._handleJumpMessage.bind(this);
+    window.addEventListener("message", this._handleJumpMessage);
+  }
+
+  _handleJumpMessage(event) {
+    // 严格验证消息来源，防止跨源消息注入
+    if (event.origin !== window.location.origin) return;
+    if (
+      event.data &&
+      event.data.type === "THEBORINGENGLISH_TRANSLATOR_JUMP_TO_TIME" &&
+      typeof event.data.time === "number" &&
+      Number.isFinite(event.data.time) &&
+      event.data.time >= 0
+    ) {
+      if (this.videoEl) {
+        this.videoEl.currentTime = event.data.time / 1000;
+        if (this.videoEl.paused) {
+          this.videoEl.play().catch(() => {});
         }
       }
-    });
+    }
   }
 
   handleWordAdded(event) {
@@ -1605,8 +1614,6 @@ export class YouTubeSubtitleList {
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap');
-
       #theboringenglish-youtube-subtitle-list-container {
         --theboringenglish-primary: #f59e0b;
         --theboringenglish-primary-subtle: rgba(245, 158, 11, 0.08);
@@ -1992,6 +1999,9 @@ export class YouTubeSubtitleList {
   destroy() {
     this.turnOffAutoSub();
     document.removeEventListener("theboringenglish-add-word", this.handleWordAdded);
+    if (this._handleJumpMessage) {
+      window.removeEventListener("message", this._handleJumpMessage);
+    }
     if (this._themeObserver) {
       this._themeObserver.disconnect();
       this._themeObserver = null;

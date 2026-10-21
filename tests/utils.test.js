@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { 
   limitNumber, 
   limitFloat, 
@@ -6,7 +6,10 @@ import {
   truncateWords, 
   isValidWord, 
   parseUrlPattern, 
-  withTimeout 
+  withTimeout,
+  isMatch,
+  debounce,
+  throttle
 } from '../src/libs/utils.js';
 
 describe('TBE-YouTube utils tests', () => {
@@ -54,6 +57,53 @@ describe('TBE-YouTube utils tests', () => {
 
     const slowTask = () => new Promise((resolve) => setTimeout(() => resolve("late"), 100));
     await expect(withTimeout(slowTask, 10, "timeout")).rejects.toThrow("timeout");
+  });
+
+  it('isMatch matches exact and wildcard patterns', () => {
+    expect(isMatch("https://www.youtube.com/watch?v=123", "youtube.com")).toBe(true);
+    expect(isMatch("https://m.youtube.com", "youtube.com")).toBe(true);
+    expect(isMatch("https://vimeo.com", "youtube.com")).toBe(false);
+    expect(isMatch("", "youtube.com")).toBe(false);
+    expect(isMatch("test", "")).toBe(false);
+  });
+
+  it('debounce invokes function only once after delay', async () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced(1);
+    debounced(2);
+    debounced(3);
+    expect(fn).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(3);
+    vi.useRealTimers();
+  });
+
+  it('throttle limits execution rate and supports cancel', () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const throttled = throttle(fn, 200);
+
+    throttled(1);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(1);
+
+    throttled(2);
+    throttled(3);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(200);
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenCalledWith(3);
+
+    throttled.cancel();
+    throttled(4);
+    expect(fn).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
   });
 });
 
