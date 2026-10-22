@@ -782,7 +782,7 @@ function App() {
           <div className="about-content">
             <div className="about-item">
               <span className="about-label">{i18n("version_label")}</span>
-              <span className="about-value">v1.0.0</span>
+              <span className="about-value">{`v${process.env.REACT_APP_VERSION || "1.0.0"}`}</span>
             </div>
             <div className="about-item">
               <span className="about-label">{i18n("website_label")}</span>

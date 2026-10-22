@@ -19,15 +19,15 @@ export default defineConfig({
   },
 
   define: {
-    "process.env.REACT_APP_VERSION": JSON.stringify("1.0"), 
+    "process.env.REACT_APP_VERSION": JSON.stringify("1.0.0"), 
     "process.env.REACT_APP_CLIENT": JSON.stringify("chrome"),
     "process.env.REACT_APP_NAME": JSON.stringify("TheBoringEnglish"),
     "process.env.REACT_APP_RULESURL": JSON.stringify("https://raw.githubusercontent.com/TheBoringEnglish/TBE-YouTube/main/rules.json"),
     "process.env.REACT_APP_RULESURL_ON": JSON.stringify(""),
     "process.env.REACT_APP_RULESURL_OFF": JSON.stringify(""),
     "process.env.REACT_APP_HOMEPAGE": JSON.stringify("https://github.com/TheBoringEnglish/TBE-YouTube"),
-    "process.env.REACT_APP_OPTIONSPAGE": JSON.stringify("options.html"),
-    "process.env.REACT_APP_OPTIONSPAGE_DEV": JSON.stringify("options.html"),
+    "process.env.REACT_APP_OPTIONSPAGE": JSON.stringify("popup.html"),
+    "process.env.REACT_APP_OPTIONSPAGE_DEV": JSON.stringify("popup.html"),
     "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV || "production"),
   },
   build: {

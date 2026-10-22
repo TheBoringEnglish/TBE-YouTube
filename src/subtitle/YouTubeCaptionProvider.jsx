@@ -2001,6 +2001,13 @@ class YouTubeCaptionProvider {
       originStyle: chosen.origin,
       translationStyle: chosen.trans,
     });
+    putSetting({
+      subtitleSetting: {
+        ...this.#setting,
+        originStyle: chosen.origin,
+        translationStyle: chosen.trans,
+      },
+    });
     this.#showNotification(`🎨 字幕字号: ${chosen.name}`);
   }
 
@@ -2043,7 +2050,10 @@ class YouTubeCaptionProvider {
   }
 
   #showNotification(message, duration = 2000) {
-    if (!this.#notificationEl) this.#createNotificationElement();
+    if (!this.#notificationEl || !document.contains(this.#notificationEl)) {
+      this.#createNotificationElement();
+    }
+    if (!this.#notificationEl) return;
     this.#notificationEl.textContent = message;
     this.#notificationEl.style.opacity = "1";
     clearTimeout(this.#notificationTimeout);

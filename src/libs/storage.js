@@ -94,7 +94,7 @@ export const storage = {
 /**
  * 深合并两个对象（仅对纯对象递归，非破坏性）
  */
-function deepMerge(target, source) {
+export function deepMerge(target, source) {
   if (!source || typeof source !== "object" || Array.isArray(source)) return source;
   const result = { ...target };
   for (const key of Object.keys(source)) {
