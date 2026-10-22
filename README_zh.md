@@ -88,17 +88,22 @@
    ```
 2. 安装项目依赖：
    ```bash
-   npm install
+   bun install # 或 npm install
    ```
 3. 开发模式运行（支持热更新）：
    ```bash
-   npm start
+   bun start
    ```
-4. 编译打包生产版本：
+4. 运行全自动化测试矩阵：
    ```bash
-   npm run build
+   bun run test:all   # 同时运行 Vitest 单元测试与 Playwright E2E 真实浏览器前端测试
+   bun run test:e2e   # 单独运行 Chromium E2E 真机前端测试（包含 Popup 面板与 YouTube 播放器字幕挂载）
    ```
-5. 打开 Chrome 扩展程序页面（`chrome://extensions/`），开启右上角**“开发者模式”**，点击左上角**“加载已解压的扩展程序”**，选择项目根目录中生成的 `dist/` 文件夹。
+5. 编译打包生产版本：
+   ```bash
+   bun run build
+   ```
+6. 打开 Chrome 扩展程序页面（`chrome://extensions/`），开启右上角**“开发者模式”**，点击左上角**“加载已解压的扩展程序”**，选择项目根目录中生成的 `dist/` 文件夹。
 
 ---
 

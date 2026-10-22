@@ -88,17 +88,22 @@ If you cannot access the Chrome Web Store, you can manually install the offline 
    ```
 2. Install dependencies:
    ```bash
-   npm install
+   bun install # or npm install
    ```
 3. Run development mode (with HMR):
    ```bash
-   npm start
+   bun start
    ```
-4. Build for production:
+4. Run automated test suites:
    ```bash
-   npm run build
+   bun run test:all   # Runs both Vitest unit tests and Playwright E2E browser tests
+   bun run test:e2e   # Runs real-browser Chromium E2E tests (Popup + YouTube Subtitles)
    ```
-5. Open the Chrome Extensions page (`chrome://extensions/`), enable **"Developer mode"**, click **"Load unpacked"**, and select the `dist/` directory generated in the root of the project.
+5. Build for production:
+   ```bash
+   bun run build
+   ```
+6. Open the Chrome Extensions page (`chrome://extensions/`), enable **"Developer mode"**, click **"Load unpacked"**, and select the `dist/` directory generated in the root of the project.
 
 ---
 
