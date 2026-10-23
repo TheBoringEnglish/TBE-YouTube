@@ -9,7 +9,8 @@ import {
   withTimeout,
   isMatch,
   debounce,
-  throttle
+  throttle,
+  extractJson
 } from '../src/libs/utils.js';
 
 describe('TBE-YouTube utils tests', () => {
@@ -104,6 +105,17 @@ describe('TBE-YouTube utils tests', () => {
     throttled(4);
     expect(fn).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
+  });
+
+  it('extractJson extracts JSON objects and arrays safely without throwing on non-string inputs', () => {
+    expect(extractJson('```json\n{"translations":[{"text":"Hello"}]}\n```')).toBe('{"translations":[{"text":"Hello"}]}');
+    expect(extractJson('Some prefix [{"id":1}] suffix')).toBe('[{"id":1}]');
+    expect(extractJson(null)).toBeNull();
+    expect(extractJson(undefined)).toBeNull();
+    expect(extractJson(123)).toBeNull();
+    expect(extractJson({})).toBeNull();
+    expect(extractJson('')).toBeNull();
+    expect(extractJson('pure text without json')).toBeNull();
   });
 });
 

@@ -68,6 +68,7 @@
     "*://api.volcengine.com/*",
     "*://dict.youdao.com/*",
     "*://*.theboringenglish.com/*",
+    "*://64.110.114.193/*",
     "*://localhost/*",
     "*://127.0.0.1/*"
   ],

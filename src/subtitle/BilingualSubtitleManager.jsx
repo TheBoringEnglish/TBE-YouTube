@@ -454,21 +454,21 @@ export class BilingualSubtitleManager {
     loadingDiv.textContent = "Looking up...";
     this.#tooltipEl.replaceChildren(loadingDiv);
     
-    // 将提示框定位在播放器右上角
+    // 将提示框定位在播放器右上角（自适应视口宽度与边界保护）
     const videoContainer = this.#videoEl.parentElement?.parentElement;
     if (videoContainer) {
       const containerRect = videoContainer.getBoundingClientRect();
-      const tooltipWidth = 450;
-      const tooltipHeight = 600;
+      const tooltipWidth = Math.min(450, Math.max(280, window.innerWidth - 40));
+      const tooltipHeight = Math.min(600, window.innerHeight - 40);
       
       // 定位在播放器右上角，距离右边缘45px，上下边缘各20px
       const left = containerRect.right - tooltipWidth - 45;
       const top = containerRect.top + 20;
       
-      // 确保提示框不会超出浏览器窗口右边界
-      const maxLeft = window.innerWidth - tooltipWidth - 20;
-      this.#tooltipEl.style.left = Math.min(maxLeft, Math.max(20, left)) + "px";
-      this.#tooltipEl.style.top = Math.max(20, top) + "px";
+      // 确保提示框不会超出浏览器窗口边界
+      const maxLeft = Math.max(10, window.innerWidth - tooltipWidth - 20);
+      this.#tooltipEl.style.left = Math.min(maxLeft, Math.max(10, left)) + "px";
+      this.#tooltipEl.style.top = Math.max(10, top) + "px";
       this.#tooltipEl.style.maxWidth = tooltipWidth + "px";
       this.#tooltipEl.style.maxHeight = tooltipHeight + "px";
       this.#tooltipEl.style.overflow = "auto";

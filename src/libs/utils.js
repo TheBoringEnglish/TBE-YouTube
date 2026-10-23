@@ -324,6 +324,7 @@ export const parseJsonObj = (str) => {
  * @returns
  */
 export const extractJson = (raw) => {
+  if (typeof raw !== "string" || !raw) return null;
   const jsonRegex = /({.*}|\[.*\])/s;
   const match = raw.match(jsonRegex);
   return match ? match[0] : null;

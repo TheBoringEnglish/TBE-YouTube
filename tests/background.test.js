@@ -5,6 +5,8 @@ import {
   MSG_PUT_HTTPCACHE, 
   MSG_CLEAR_CACHES 
 } from '../src/config/msg.js';
+import { parseTransRes } from '../src/apis/trans.jsx';
+import { OPT_TRANS_GEMINI } from '../src/config/api.jsx';
 
 describe('Background message routing tests', () => {
   it('defines all required core message action constants', () => {
@@ -27,5 +29,33 @@ describe('Background message routing tests', () => {
     const result = await handlers[MSG_CLEAR_CACHES]();
     expect(result).toBe(true);
     expect(clearMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('correctly filters out Gemini thought/thinking parts and parses translation JSON', async () => {
+    const mockGeminiResponse = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              { text: "Thinking process: let's translate this carefully...", thought: true },
+              { text: JSON.stringify({
+                translations: [
+                  { text: "语言习得需要沉浸式可理解输入。", sourceLanguage: "en", vocab: [] }
+                ]
+              }) }
+            ]
+          }
+        }
+      ]
+    };
+
+    const result = await parseTransRes(mockGeminiResponse, {
+      apiType: OPT_TRANS_GEMINI,
+      useBatchFetch: true,
+    });
+
+    expect(result).toEqual([
+      ["语言习得需要沉浸式可理解输入。", "en", []]
+    ]);
   });
 });

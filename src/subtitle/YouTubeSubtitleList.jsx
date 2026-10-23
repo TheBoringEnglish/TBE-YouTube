@@ -2196,14 +2196,16 @@ export class YouTubeSubtitleList {
     loadingDiv.textContent = "Looking up...";
     this.tooltipEl.replaceChildren(loadingDiv);
 
-    // 将提示框定位在侧边栏高亮词旁边 (absolute定位)
+    // 将提示框定位在侧边栏高亮词旁边 (absolute定位，增加双向边界防溢出保护)
     const rect = this.activeWordEl.getBoundingClientRect();
-    const tooltipWidth = 320;
+    const tooltipWidth = Math.min(320, Math.max(260, window.innerWidth - 30));
     
     let left = rect.left - tooltipWidth - 10;
     if (left < 10) {
       left = rect.right + 10;
     }
+    const maxLeft = Math.max(10, window.innerWidth - tooltipWidth - 10);
+    left = Math.min(maxLeft, Math.max(10, left));
     const top = Math.max(10, rect.top + window.scrollY - 50);
     
     Object.assign(this.tooltipEl.style, {
@@ -2211,6 +2213,7 @@ export class YouTubeSubtitleList {
       left: left + "px",
       top: top + "px",
       width: tooltipWidth + "px",
+      maxWidth: tooltipWidth + "px",
       zIndex: "2147483647",
       maxHeight: "450px",
       overflow: "auto"

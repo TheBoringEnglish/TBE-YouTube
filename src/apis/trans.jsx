@@ -852,9 +852,14 @@ export const parseTransRes = async (
         });
       }
       return parseAIRes(modelMsg?.content, useBatchFetch);
-    case OPT_TRANS_GEMINI:
+    case OPT_TRANS_GEMINI: {
       modelMsg = res?.candidates?.[0]?.content;
-      return parseAIRes(modelMsg?.parts?.[0]?.text ?? "", useBatchFetch);
+      const parts = modelMsg?.parts;
+      const text = Array.isArray(parts)
+        ? (parts.filter((p) => !p.thought).map((p) => p.text || "").join("") || parts[0]?.text || "")
+        : "";
+      return parseAIRes(text, useBatchFetch);
+    }
     case OPT_TRANS_CLAUDE:
       modelMsg = { role: res?.role, content: res?.content?.text };
       if (history && userMsg && modelMsg) {
@@ -1081,8 +1086,13 @@ export const handleSubtitle = async ({ events, from, to, apiSetting }) => {
     case OPT_TRANS_OPENROUTER:
     case OPT_TRANS_OLLAMA:
       return parseSTRes(res?.choices?.[0]?.message?.content ?? "");
-    case OPT_TRANS_GEMINI:
-      return parseSTRes(res?.candidates?.[0]?.content?.parts?.[0]?.text ?? "");
+    case OPT_TRANS_GEMINI: {
+      const parts = res?.candidates?.[0]?.content?.parts;
+      const text = Array.isArray(parts)
+        ? (parts.filter((p) => !p.thought).map((p) => p.text || "").join("") || parts[0]?.text || "")
+        : "";
+      return parseSTRes(text);
+    }
     case OPT_TRANS_CLAUDE:
       return parseSTRes(res?.content?.[0]?.text ?? "");
     case OPT_TRANS_CUSTOMIZE:
