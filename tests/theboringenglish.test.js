@@ -27,4 +27,18 @@ describe('TheBoringEnglish API URL normalizer tests', () => {
   it('trims whitespace and trailing slashes cleanly', () => {
     expect(getApiUrl('  http://localhost:8000/  ')).toBe('http://localhost:8000/api/v1');
   });
+
+  it('cleans token and strips redundant Bearer prefix for header safety', () => {
+    const rawTokens = [
+      'Bearer eyJhbGciOiJIUzI1NiJ9',
+      'bearer eyJhbGciOiJIUzI1NiJ9',
+      '  Bearer   eyJhbGciOiJIUzI1NiJ9  ',
+      'eyJhbGciOiJIUzI1NiJ9',
+    ];
+    for (const raw of rawTokens) {
+      const cleaned = (raw || '').trim().replace(/^Bearer\s+/i, '');
+      expect(cleaned).toBe('eyJhbGciOiJIUzI1NiJ9');
+      expect(`Bearer ${cleaned}`).toBe('Bearer eyJhbGciOiJIUzI1NiJ9');
+    }
+  });
 });

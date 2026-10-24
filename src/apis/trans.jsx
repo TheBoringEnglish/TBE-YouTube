@@ -844,6 +844,9 @@ export const parseTransRes = async (
     case OPT_TRANS_OPENAI:
     case OPT_TRANS_GEMINI_2:
     case OPT_TRANS_OPENROUTER:
+      if (res?.error) {
+        throw new Error(res.error.message || JSON.stringify(res.error));
+      }
       modelMsg = res?.choices?.[0]?.message;
       if (history && userMsg && modelMsg) {
         history.add(userMsg, {
@@ -853,6 +856,9 @@ export const parseTransRes = async (
       }
       return parseAIRes(modelMsg?.content, useBatchFetch);
     case OPT_TRANS_GEMINI: {
+      if (res?.error) {
+        throw new Error(res.error.message || JSON.stringify(res.error));
+      }
       modelMsg = res?.candidates?.[0]?.content;
       const parts = modelMsg?.parts;
       const text = Array.isArray(parts)
@@ -1085,8 +1091,14 @@ export const handleSubtitle = async ({ events, from, to, apiSetting }) => {
     case OPT_TRANS_GEMINI_2:
     case OPT_TRANS_OPENROUTER:
     case OPT_TRANS_OLLAMA:
+      if (res?.error) {
+        throw new Error(res.error.message || JSON.stringify(res.error));
+      }
       return parseSTRes(res?.choices?.[0]?.message?.content ?? "");
     case OPT_TRANS_GEMINI: {
+      if (res?.error) {
+        throw new Error(res.error.message || JSON.stringify(res.error));
+      }
       const parts = res?.candidates?.[0]?.content?.parts;
       const text = Array.isArray(parts)
         ? (parts.filter((p) => !p.thought).map((p) => p.text || "").join("") || parts[0]?.text || "")

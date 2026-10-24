@@ -57,6 +57,16 @@ const addWordHoverStyles = () => {
       transform: scale(0.95);
     }
 
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-pronounce-btn,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-pronounce-btn {
+      color: #ea580c;
+    }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-pronounce-btn:hover,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-pronounce-btn:hover {
+      background: rgba(234, 88, 12, 0.12);
+    }
+
     
     .theboringenglish-word-tooltip {
       position: fixed;
@@ -133,6 +143,11 @@ const addWordHoverStyles = () => {
     .theboringenglish-word-loading {
       color: #bbb;
       font-style: italic;
+    }
+
+    .theboringenglish-word-tooltip[data-theme='light'] .theboringenglish-word-loading,
+    html:not([dark]) .theboringenglish-word-tooltip:not([data-theme='dark']) .theboringenglish-word-loading {
+      color: #64748b;
     }
     
     .theboringenglish-word-definition {
@@ -213,6 +228,7 @@ export class BilingualSubtitleManager {
   #hoverTimeout = null;
   #isHoveringTooltip = false;
   #activeWordEl = null;
+  #resizeObserver = null;
 
   /**
    * @param {object} options
@@ -282,6 +298,12 @@ export class BilingualSubtitleManager {
       clearTimeout(this.#hoverTimeout);
       this.#hoverTimeout = null;
     }
+
+    // 清理自适应尺寸监听器
+    if (this.#resizeObserver) {
+      this.#resizeObserver.disconnect();
+      this.#resizeObserver = null;
+    }
   }
 
   /**
@@ -344,6 +366,26 @@ export class BilingualSubtitleManager {
     videoContainer.appendChild(container);
 
     this.#enableDragging(this.#paperEl, container, this.#captionWindowEl);
+
+    // 监听视频容器尺寸变化，自适应防止窗口缩放或全屏切换后字幕溢出屏幕
+    if (typeof ResizeObserver !== "undefined") {
+      this.#resizeObserver = new ResizeObserver(() => {
+        if (!this.#paperEl || !this.#containerEl) return;
+        const containerH = this.#containerEl.clientHeight;
+        if (!containerH) return;
+        const paperH = this.#paperEl.offsetHeight || 60;
+        const currentBottom = parseFloat(this.#paperEl.style.bottom);
+        if (!isNaN(currentBottom)) {
+          const maxBottom = Math.max(60, containerH - paperH - 10);
+          if (currentBottom > maxBottom) {
+            this.#paperEl.style.bottom = `${maxBottom}px`;
+          } else if (currentBottom < 60) {
+            this.#paperEl.style.bottom = "max(68px, 11%)";
+          }
+        }
+      });
+      this.#resizeObserver.observe(videoContainer);
+    }
 
     // 添加鼠标悬停事件监听器
     this.#captionWindowEl.addEventListener(

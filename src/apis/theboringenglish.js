@@ -93,6 +93,7 @@ export async function loginToWeb(serverUrl, username, password) {
  */
 export async function syncWordToWeb(serverUrl, token, note) {
   const normalizedUrl = getApiUrl(serverUrl);
+  const cleanToken = (token || "").trim().replace(/^Bearer\s+/i, "");
   try {
     return await fetchData(
       `${normalizedUrl}/notes/save`,
@@ -100,7 +101,7 @@ export async function syncWordToWeb(serverUrl, token, note) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${cleanToken}`,
         },
         body: JSON.stringify(note),
       },
@@ -120,6 +121,7 @@ export async function syncWordToWeb(serverUrl, token, note) {
  */
 export async function importSubtitleToWeb(serverUrl, token, { title, content, sourceUrl, imageUrl, parsedJson }) {
   const normalizedUrl = getApiUrl(serverUrl);
+  const cleanToken = (token || "").trim().replace(/^Bearer\s+/i, "");
   try {
     const data = await fetchData(
       `${normalizedUrl}/article/process`,
@@ -127,7 +129,7 @@ export async function importSubtitleToWeb(serverUrl, token, { title, content, so
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${cleanToken}`,
         },
         body: JSON.stringify({
           title: title,
@@ -160,13 +162,14 @@ export async function importSubtitleToWeb(serverUrl, token, { title, content, so
  */
 export async function fetchUserInfoWithToken(serverUrl, token) {
   const normalizedUrl = getApiUrl(serverUrl);
+  const cleanToken = (token || "").trim().replace(/^Bearer\s+/i, "");
   try {
     const data = await fetchData(
       `${normalizedUrl}/auth/me`,
       {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${cleanToken}`,
         },
       },
       { useCache: false, usePool: false, expect: "json" }

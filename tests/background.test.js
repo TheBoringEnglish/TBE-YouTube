@@ -58,4 +58,20 @@ describe('Background message routing tests', () => {
       ["语言习得需要沉浸式可理解输入。", "en", []]
     ]);
   });
+
+  it('throws descriptive error when Gemini or OpenAI API returns error payload', async () => {
+    const errorPayload = {
+      error: {
+        code: 429,
+        message: "Resource has been exhausted (e.g. check quota)."
+      }
+    };
+
+    await expect(
+      parseTransRes(errorPayload, {
+        apiType: OPT_TRANS_GEMINI,
+        useBatchFetch: true,
+      })
+    ).rejects.toThrow("Resource has been exhausted (e.g. check quota).");
+  });
 });

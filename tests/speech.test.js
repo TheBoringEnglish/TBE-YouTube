@@ -41,7 +41,8 @@ describe('Speech synthesis utility tests', () => {
   });
 
   it('returns false for empty or whitespace-only words', () => {
-    const res = speakWord('   ');
-    expect(res).toBe(false);
+    expect(speakWord('   ')).toBe(false);
+    expect(speakWord(null)).toBe(false);
+    expect(speakWord(undefined)).toBe(false);
   });
 });

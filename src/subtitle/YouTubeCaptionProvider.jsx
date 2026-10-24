@@ -1334,10 +1334,19 @@ class YouTubeCaptionProvider {
       this.#adObserver.disconnect();
       this.#adObserver = null;
     }
-    // 清理按钓定期检查定时器，防止内存泄漏
+    // 清理按钮定期检查定时器，防止内存泄漏
     if (this.#buttonCheckInterval !== null) {
       clearInterval(this.#buttonCheckInterval);
       this.#buttonCheckInterval = null;
+    }
+    // 清理通知元素与计时器
+    if (this.#notificationEl) {
+      this.#notificationEl.remove();
+      this.#notificationEl = null;
+    }
+    if (this.#notificationTimeout) {
+      clearTimeout(this.#notificationTimeout);
+      this.#notificationTimeout = null;
     }
     if (!this.#managerInstance) {
       return;
@@ -1364,8 +1373,8 @@ class YouTubeCaptionProvider {
     }
 
     this.#buttonCheckInterval = setInterval(() => {
-      const { enabled = true } = this.#setting?.subtitleSetting || {};
-      if (!enabled) return;
+      const isEnabled = this.#setting?.enabled !== false;
+      if (!isEnabled) return;
 
       const ytControls = document.querySelector(CONTROLS_SELECT) || 
                          document.getElementById("movie_player")?.shadowRoot?.querySelector(CONTROLS_SELECT);

@@ -1,9 +1,19 @@
-import { defineConfig } from "vite";
+import { createLogger, defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { crx } from "@crxjs/vite-plugin";
 import manifest from "./manifest.json";
 
+const logger = createLogger();
+const originalWarn = logger.warn;
+logger.warn = (msg, options) => {
+  if (typeof msg === "string" && msg.includes("Both `rollupOptions` and `rolldownOptions` were specified by")) {
+    return;
+  }
+  originalWarn(msg, options);
+};
+
 export default defineConfig({
+  customLogger: logger,
   test: {
     setupFiles: ["./tests/setup.js"],
   },
