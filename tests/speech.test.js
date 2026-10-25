@@ -45,4 +45,21 @@ describe('Speech synthesis utility tests', () => {
     expect(speakWord(null)).toBe(false);
     expect(speakWord(undefined)).toBe(false);
   });
+
+  it('normalizes smart quotes and strips wrapping punctuation before speaking', () => {
+    let spokenUtterance = null;
+    globalThis.speechSynthesis = {
+      speak: vi.fn((utt) => { spokenUtterance = utt; }),
+      cancel: vi.fn(),
+      getVoices: vi.fn().mockReturnValue([{ name: 'Natural', lang: 'en-US' }]),
+    };
+    globalThis.window.speechSynthesis = globalThis.speechSynthesis;
+
+    speakWord('“don’t”');
+    expect(spokenUtterance).not.toBeNull();
+    expect(spokenUtterance.text).toBe("don't");
+
+    speakWord('‘state-of-the-art’');
+    expect(spokenUtterance.text).toBe("state-of-the-art");
+  });
 });

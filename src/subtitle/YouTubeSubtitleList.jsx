@@ -2054,14 +2054,20 @@ export class YouTubeSubtitleList {
   _appendWordsWithSpans(container, text, vocabList = []) {
     if (!text) return;
     
-    if (!vocabList || vocabList.length === 0) {
+    const validVocab = (vocabList || []).filter(
+      (item) => item && typeof item.word === "string" && item.word.trim().length > 0
+    );
+
+    if (validVocab.length === 0) {
       this._appendDefaultWords(container, text);
       return;
     }
 
-    const sortedVocab = [...vocabList].sort((a, b) => b.word.length - a.word.length);
-    const escapedTerms = sortedVocab.map(item => {
-      const escaped = item.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const sortedVocab = [...validVocab].sort((a, b) => b.word.length - a.word.length);
+    const escapedTerms = sortedVocab.map((item) => {
+      const escaped = item.word
+        .replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+        .replace(/['’]/g, "['’]");
       return `\\b${escaped}\\b`;
     });
 
@@ -2075,11 +2081,15 @@ export class YouTubeSubtitleList {
       }
 
       const matchedText = match[1];
-      const vocabItem = sortedVocab.find(item => item.word.toLowerCase() === matchedText.toLowerCase());
+      const matchedNormalized = matchedText.replace(/’/g, "'").toLowerCase();
+      const vocabItem = sortedVocab.find((item) => {
+        const itemNorm = item.word.replace(/’/g, "'").toLowerCase();
+        return itemNorm === matchedNormalized;
+      });
 
       const span = document.createElement("span");
       span.className = "theboringenglish-subtitle-word theboringenglish-key-vocab";
-      span.dataset.word = matchedText;
+      span.dataset.word = matchedText.replace(/’/g, "'");
       if (vocabItem) {
         span.dataset.isKeyVocab = "true";
         span.dataset.definition = vocabItem.definition || "";
@@ -2098,7 +2108,7 @@ export class YouTubeSubtitleList {
   }
 
   _appendDefaultWords(container, text) {
-    const regex = /\b([a-zA-Z]+(?:'[a-zA-Z]+)?)\b/g;
+    const regex = /\b([a-zA-Z]+(?:['’][a-zA-Z]+)?)\b/g;
     let lastIndex = 0;
     let match;
     while ((match = regex.exec(text)) !== null) {
@@ -2107,7 +2117,7 @@ export class YouTubeSubtitleList {
       }
       const span = document.createElement("span");
       span.className = "theboringenglish-subtitle-word";
-      span.dataset.word = match[1];
+      span.dataset.word = match[1].replace(/’/g, "'");
       span.textContent = match[1];
       container.appendChild(span);
       lastIndex = regex.lastIndex;
@@ -2219,7 +2229,8 @@ export class YouTubeSubtitleList {
       overflow: "auto"
     });
 
-    document.body.appendChild(this.tooltipEl);
+    const mountPoint = document.fullscreenElement || document.body;
+    mountPoint.appendChild(this.tooltipEl);
 
     try {
       const isKeyVocab = this.activeWordEl?.dataset.isKeyVocab === "true";

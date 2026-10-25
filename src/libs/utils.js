@@ -319,12 +319,78 @@ export const parseJsonObj = (str) => {
 };
 
 /**
- * 提取json内容
- * @param {*} s
- * @returns
+ * 提取json内容（多层级防御提取，免疫 Markdown 围栏、AI 思考前缀与多余花括号干扰）
+ * @param {string} raw
+ * @returns {string|null}
  */
 export const extractJson = (raw) => {
   if (typeof raw !== "string" || !raw) return null;
+  const trimmed = raw.trim();
+
+  // 1. 若整段内容已是有效 JSON，直接返回
+  try {
+    JSON.parse(trimmed);
+    return trimmed;
+  } catch {}
+
+  // 2. 匹配 Markdown 代码块 ```json ... ```
+  const codeBlockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    const candidate = codeBlockMatch[1].trim();
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {}
+  }
+
+  // 3. 扫描平衡的成对括号，按文本中先出现的括号类型优先检测有效 JSON
+  const firstBrace = raw.indexOf("{");
+  const firstBracket = raw.indexOf("[");
+  let pairs = [["{", "}"], ["[", "]"]];
+  if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+    pairs = [["[", "]"], ["{", "}"]];
+  }
+
+  for (const [openChar, closeChar] of pairs) {
+    let startIdx = raw.indexOf(openChar);
+    while (startIdx !== -1) {
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      for (let i = startIdx; i < raw.length; i++) {
+        const char = raw[i];
+        if (escape) {
+          escape = false;
+          continue;
+        }
+        if (char === "\\") {
+          escape = true;
+          continue;
+        }
+        if (char === '"') {
+          inString = !inString;
+          continue;
+        }
+        if (!inString) {
+          if (char === openChar) depth++;
+          else if (char === closeChar) {
+            depth--;
+            if (depth === 0) {
+              const candidate = raw.slice(startIdx, i + 1);
+              try {
+                JSON.parse(candidate);
+                return candidate;
+              } catch {}
+              break;
+            }
+          }
+        }
+      }
+      startIdx = raw.indexOf(openChar, startIdx + 1);
+    }
+  }
+
+  // 4. 贪婪正则表达式兜底
   const jsonRegex = /({.*}|\[.*\])/s;
   const match = raw.match(jsonRegex);
   return match ? match[0] : null;

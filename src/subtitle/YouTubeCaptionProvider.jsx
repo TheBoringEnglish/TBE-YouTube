@@ -2055,6 +2055,12 @@ class YouTubeCaptionProvider {
     if (videoContainer) {
       videoContainer.appendChild(notificationEl);
       this.#notificationEl = notificationEl;
+    } else {
+      const mountPoint = document.fullscreenElement || document.body;
+      if (mountPoint) {
+        mountPoint.appendChild(notificationEl);
+        this.#notificationEl = notificationEl;
+      }
     }
   }
 

@@ -110,6 +110,7 @@ describe('TBE-YouTube utils tests', () => {
   it('extractJson extracts JSON objects and arrays safely without throwing on non-string inputs', () => {
     expect(extractJson('```json\n{"translations":[{"text":"Hello"}]}\n```')).toBe('{"translations":[{"text":"Hello"}]}');
     expect(extractJson('Some prefix [{"id":1}] suffix')).toBe('[{"id":1}]');
+    expect(extractJson('Note: {invalid non-json} Real result: {"translations":[{"text":"Hello"}]} trailing info.')).toBe('{"translations":[{"text":"Hello"}]}');
     expect(extractJson(null)).toBeNull();
     expect(extractJson(undefined)).toBeNull();
     expect(extractJson(123)).toBeNull();

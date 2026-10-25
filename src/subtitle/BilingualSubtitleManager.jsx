@@ -374,7 +374,10 @@ export class BilingualSubtitleManager {
         const containerH = this.#containerEl.clientHeight;
         if (!containerH) return;
         const paperH = this.#paperEl.offsetHeight || 60;
-        const currentBottom = parseFloat(this.#paperEl.style.bottom);
+        let currentBottom = parseFloat(this.#paperEl.style.bottom);
+        if (isNaN(currentBottom)) {
+          currentBottom = parseFloat(window.getComputedStyle(this.#paperEl).bottom);
+        }
         if (!isNaN(currentBottom)) {
           const maxBottom = Math.max(60, containerH - paperH - 10);
           if (currentBottom > maxBottom) {
@@ -496,10 +499,13 @@ export class BilingualSubtitleManager {
     loadingDiv.textContent = "Looking up...";
     this.#tooltipEl.replaceChildren(loadingDiv);
     
-    // 将提示框定位在播放器右上角（自适应视口宽度与边界保护）
+    // 将提示框定位在播放器右上角（自适应视口宽度与全屏边界保护）
     const videoContainer = this.#videoEl.parentElement?.parentElement;
     if (videoContainer) {
-      const containerRect = videoContainer.getBoundingClientRect();
+      const isFullscreen = !!document.fullscreenElement;
+      const containerRect = isFullscreen
+        ? { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
+        : videoContainer.getBoundingClientRect();
       const tooltipWidth = Math.min(450, Math.max(280, window.innerWidth - 40));
       const tooltipHeight = Math.min(600, window.innerHeight - 40);
       
@@ -516,7 +522,8 @@ export class BilingualSubtitleManager {
       this.#tooltipEl.style.overflow = "auto";
     }
 
-    document.body.appendChild(this.#tooltipEl);
+    const mountPoint = document.fullscreenElement || document.body;
+    mountPoint.appendChild(this.#tooltipEl);
     
     try {
       const isKeyVocab = this.#activeWordEl?.dataset.isKeyVocab === "true";
@@ -968,14 +975,20 @@ export class BilingualSubtitleManager {
   #appendWordsWithSpans(container, text, vocabList = []) {
     if (!text) return;
     
-    if (!vocabList || vocabList.length === 0) {
+    const validVocab = (vocabList || []).filter(
+      (item) => item && typeof item.word === "string" && item.word.trim().length > 0
+    );
+
+    if (validVocab.length === 0) {
       this.#appendDefaultWords(container, text);
       return;
     }
 
-    const sortedVocab = [...vocabList].sort((a, b) => b.word.length - a.word.length);
-    const escapedTerms = sortedVocab.map(item => {
-      const escaped = item.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const sortedVocab = [...validVocab].sort((a, b) => b.word.length - a.word.length);
+    const escapedTerms = sortedVocab.map((item) => {
+      const escaped = item.word
+        .replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+        .replace(/['’]/g, "['’]");
       return `\\b${escaped}\\b`;
     });
 
@@ -989,11 +1002,15 @@ export class BilingualSubtitleManager {
       }
 
       const matchedText = match[1];
-      const vocabItem = sortedVocab.find(item => item.word.toLowerCase() === matchedText.toLowerCase());
+      const matchedNormalized = matchedText.replace(/’/g, "'").toLowerCase();
+      const vocabItem = sortedVocab.find((item) => {
+        const itemNorm = item.word.replace(/’/g, "'").toLowerCase();
+        return itemNorm === matchedNormalized;
+      });
 
       const span = document.createElement("span");
       span.className = "theboringenglish-subtitle-word theboringenglish-key-vocab";
-      span.dataset.word = matchedText;
+      span.dataset.word = matchedText.replace(/’/g, "'");
       if (vocabItem) {
         span.dataset.isKeyVocab = "true";
         span.dataset.definition = vocabItem.definition || "";
@@ -1012,7 +1029,7 @@ export class BilingualSubtitleManager {
   }
 
   #appendDefaultWords(container, text) {
-    const regex = /\b([a-zA-Z]+(?:'[a-zA-Z]+)?)\b/g;
+    const regex = /\b([a-zA-Z]+(?:['’][a-zA-Z]+)?)\b/g;
     let lastIndex = 0;
     let match;
     while ((match = regex.exec(text)) !== null) {
@@ -1021,7 +1038,7 @@ export class BilingualSubtitleManager {
       }
       const span = document.createElement("span");
       span.className = "theboringenglish-subtitle-word";
-      span.dataset.word = match[1];
+      span.dataset.word = match[1].replace(/’/g, "'");
       span.textContent = match[1];
       container.appendChild(span);
       lastIndex = regex.lastIndex;
