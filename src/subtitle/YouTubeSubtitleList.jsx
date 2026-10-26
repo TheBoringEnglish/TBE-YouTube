@@ -42,6 +42,9 @@ export class YouTubeSubtitleList {
     this.handleWordAdded = this.handleWordAdded.bind(this);
     document.addEventListener("theboringenglish-add-word", this.handleWordAdded);
 
+    this._onFullscreenChange = () => this._hideWordTooltip();
+    document.addEventListener("fullscreenchange", this._onFullscreenChange);
+
     this._handleJumpMessage = this._handleJumpMessage.bind(this);
     window.addEventListener("message", this._handleJumpMessage);
   }
@@ -1999,6 +2002,10 @@ export class YouTubeSubtitleList {
   destroy() {
     this.turnOffAutoSub();
     document.removeEventListener("theboringenglish-add-word", this.handleWordAdded);
+    if (this._onFullscreenChange) {
+      document.removeEventListener("fullscreenchange", this._onFullscreenChange);
+      this._onFullscreenChange = null;
+    }
     if (this._handleJumpMessage) {
       window.removeEventListener("message", this._handleJumpMessage);
     }
@@ -2216,7 +2223,8 @@ export class YouTubeSubtitleList {
     }
     const maxLeft = Math.max(10, window.innerWidth - tooltipWidth - 10);
     left = Math.min(maxLeft, Math.max(10, left));
-    const top = Math.max(10, rect.top + window.scrollY - 50);
+    const isFullscreen = !!document.fullscreenElement;
+    const top = isFullscreen ? Math.max(10, rect.top - 50) : Math.max(10, rect.top + window.scrollY - 50);
     
     Object.assign(this.tooltipEl.style, {
       position: "absolute",
@@ -2405,7 +2413,7 @@ export class YouTubeSubtitleList {
     closeBtn.className = "theboringenglish-word-tooltip-close";
     closeBtn.textContent = "×";
     closeBtn.addEventListener("click", () => {
-      if (this.tooltipEl) this.tooltipEl.remove();
+      this._hideWordTooltip();
     });
     header.appendChild(closeBtn);
     nodes.push(header);

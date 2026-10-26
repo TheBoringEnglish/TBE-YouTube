@@ -229,6 +229,9 @@ export class BilingualSubtitleManager {
   #isHoveringTooltip = false;
   #activeWordEl = null;
   #resizeObserver = null;
+  #onFullscreenChange = () => {
+    this.#hideWordTooltip();
+  };
 
   /**
    * @param {object} options
@@ -870,11 +873,12 @@ export class BilingualSubtitleManager {
   }
 
   /**
-   * 绑定视频元素的 timeupdate 和 seeked 事件监听器。
+   * 绑定视频元素的 timeupdate 和 seeked 事件监听器，以及全屏切换监听。
    */
   #attachEventListeners() {
     this.#videoEl.addEventListener("timeupdate", this.onTimeUpdate);
     this.#videoEl.addEventListener("seeked", this.onSeek);
+    document.addEventListener("fullscreenchange", this.#onFullscreenChange);
   }
 
   /**
@@ -883,6 +887,7 @@ export class BilingualSubtitleManager {
   #removeEventListeners() {
     this.#videoEl.removeEventListener("timeupdate", this.onTimeUpdate);
     this.#videoEl.removeEventListener("seeked", this.onSeek);
+    document.removeEventListener("fullscreenchange", this.#onFullscreenChange);
   }
 
   /**

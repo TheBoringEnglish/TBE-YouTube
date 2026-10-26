@@ -141,6 +141,11 @@ const parseAIRes = (raw, useBatchFetch = true) => {
           const item = data.translations[0];
           return [[item?.text ?? "", item?.sourceLanguage ?? "", item?.vocab ?? []]];
         }
+        if (Array.isArray(data) && data[0]) {
+          const item = data[0];
+          if (typeof item === "string") return [[item, "", []]];
+          return [[item?.text ?? "", item?.sourceLanguage ?? "", item?.vocab ?? []]];
+        }
         if (data.text) {
           return [[data.text, data.sourceLanguage || "", data.vocab || []]];
         }
@@ -154,10 +159,28 @@ const parseAIRes = (raw, useBatchFetch = true) => {
     if (!jsonString) return [];
 
     const data = JSON.parse(jsonString);
-    if (Array.isArray(data.translations)) {
-      // todo: 考虑序号id可能会打乱
-      return data.translations.map((item) => [
-        item?.text ?? "",
+    const rawItems = Array.isArray(data.translations)
+      ? data.translations
+      : Array.isArray(data)
+      ? data
+      : null;
+
+    if (rawItems) {
+      let items = [...rawItems];
+      const hasValidIds =
+        items.length > 1 &&
+        items.every(
+          (it) =>
+            it &&
+            it.id !== undefined &&
+            it.id !== null &&
+            !isNaN(Number(it.id))
+        );
+      if (hasValidIds) {
+        items.sort((a, b) => Number(a.id) - Number(b.id));
+      }
+      return items.map((item) => [
+        item?.text ?? (typeof item === "string" ? item : ""),
         item?.sourceLanguage ?? "",
         item?.vocab ?? [],
       ]);

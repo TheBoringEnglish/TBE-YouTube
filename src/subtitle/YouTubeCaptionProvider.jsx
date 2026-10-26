@@ -1386,12 +1386,16 @@ class YouTubeCaptionProvider {
   }
 
   #hideYtCaption() {
-    const ytCaption = document.querySelector(YT_CAPTION_SELECT);
+    const ytCaption =
+      document.querySelector(YT_CAPTION_SELECT) ||
+      document.getElementById("movie_player")?.shadowRoot?.querySelector(YT_CAPTION_SELECT);
     ytCaption && (ytCaption.style.display = "none");
   }
 
   #showYtCaption() {
-    const ytCaption = document.querySelector(YT_CAPTION_SELECT);
+    const ytCaption =
+      document.querySelector(YT_CAPTION_SELECT) ||
+      document.getElementById("movie_player")?.shadowRoot?.querySelector(YT_CAPTION_SELECT);
     ytCaption && (ytCaption.style.display = "block");
   }
 

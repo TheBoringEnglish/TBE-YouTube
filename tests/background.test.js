@@ -6,7 +6,7 @@ import {
   MSG_CLEAR_CACHES 
 } from '../src/config/msg.js';
 import { parseTransRes } from '../src/apis/trans.jsx';
-import { OPT_TRANS_GEMINI } from '../src/config/api.jsx';
+import { OPT_TRANS_GEMINI, OPT_TRANS_GEMINI_2, OPT_TRANS_OPENAI } from '../src/config/api.jsx';
 
 describe('Background message routing tests', () => {
   it('defines all required core message action constants', () => {
@@ -56,6 +56,58 @@ describe('Background message routing tests', () => {
 
     expect(result).toEqual([
       ["语言习得需要沉浸式可理解输入。", "en", []]
+    ]);
+  });
+
+  it('correctly handles top-level array responses and sorts out-of-order segment IDs', async () => {
+    const mockShuffledArrayResponse = {
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: JSON.stringify([
+              { id: 2, text: "第三句", sourceLanguage: "en", vocab: [] },
+              { id: 0, text: "第一句", sourceLanguage: "en", vocab: [] },
+              { id: 1, text: "第二句", sourceLanguage: "en", vocab: [] }
+            ])
+          }
+        }
+      ]
+    };
+
+    const result = await parseTransRes(mockShuffledArrayResponse, {
+      apiType: OPT_TRANS_GEMINI_2,
+      useBatchFetch: true,
+    });
+
+    expect(result).toEqual([
+      ["第一句", "en", []],
+      ["第二句", "en", []],
+      ["第三句", "en", []]
+    ]);
+  });
+
+  it('correctly parses non-batch array and single-item translations', async () => {
+    const mockNonBatchResponse = {
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: JSON.stringify([
+              { text: "独立非批量翻译", sourceLanguage: "en", vocab: ["test"] }
+            ])
+          }
+        }
+      ]
+    };
+
+    const result = await parseTransRes(mockNonBatchResponse, {
+      apiType: OPT_TRANS_OPENAI,
+      useBatchFetch: false,
+    });
+
+    expect(result).toEqual([
+      ["独立非批量翻译", "en", ["test"]]
     ]);
   });
 

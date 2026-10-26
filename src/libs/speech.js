@@ -52,7 +52,8 @@ export function speakWord(text, lang = "en-US", onEnd = null) {
     window.speechSynthesis.cancel();
 
     const cleanText = String(text ?? "")
-      .replace(/’/g, "'")
+      .replace(/[‘’]/g, "'")
+      .replace(/[“”]/g, '"')
       .trim()
       .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, "")
       .replace(/[\n\r\t]/g, " ");
